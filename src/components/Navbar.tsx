@@ -1,5 +1,4 @@
 // src/components/Navbar.tsx
-import { Button } from "@/components/ui/button";
 import MobileSidebar from "./MobileSidebar";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
