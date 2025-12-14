@@ -18,6 +18,7 @@ export const getAllUsersExceptAdmin = async () => {
 };
 
 export const registerUser = async (
+  name: string,
   email: string,
   password: string,
   adminToken?: string
@@ -26,7 +27,7 @@ export const registerUser = async (
 
   const res = await api.post<IAuthResponse>(
     "/auth/register",
-    { email, password, adminToken },
+    { name, email, password, adminToken },
     {
       headers: {
         Authorization: `Bearer ${token}`,

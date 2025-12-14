@@ -15,9 +15,8 @@ import type {
   IGetAllUsersResponse,
   IUser,
 } from "@/types/userType";
-import type { IAuthResponse } from "@/types/authType";
 import { toast } from "sonner";
-import { XCircle } from "lucide-react"; // optional, for icon in error toast
+import { XCircle } from "lucide-react";
 
 export default function Manage() {
   const [employees, setEmployees] = useState<IUser[]>([]);
@@ -27,8 +26,8 @@ export default function Manage() {
     setEmployees(data.users);
   };
 
-  const addUsers = async (email: string, password: string) => {
-    await registerUser(email, password);
+  const addUsers = async (name: string, email: string, password: string) => {
+    await registerUser(name, email, password);
   };
 
   const deleteUsers = async (
@@ -74,7 +73,7 @@ export default function Manage() {
     }
 
     try {
-      await addUsers(email, password); // your API call
+      await addUsers(name, email, password); // your API call
       await fetchUsers(); // refresh list
       // ✅ No success toast as requested
     } catch (err: any) {
@@ -232,8 +231,8 @@ export default function Manage() {
                 >
                   {/* Employee Info */}
                   <div className="flex flex-col">
-                    <p className="font-semibold text-lg">{emp.email}</p>
-                    {/* <p className="text-gray-600 text-sm"></p> */}
+                    <p className="font-semibold text-lg">{emp.name}</p>
+                    <p className="text-gray-600 text-sm">{emp.email}</p>
                   </div>
 
                   {/* Delete Button */}
