@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, User, Eye, Trash2 } from "lucide-react";
+import { Search, User, Eye, Trash2, Loader2 } from "lucide-react";
 import { deleteKyc, getAllCustomers } from "@/api/kyc";
 import type { KycCustomer } from "@/types/kycTypes";
 import CustomerDetails from "./CustomerDetails";
@@ -21,16 +21,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 
 const calculateKycProgress = (c: KycCustomer) => {
   let total = 0;
-
   if (c.aadhaar_key) total++;
   if (c.pan_key) total++;
   if (c.voter_key) total++;
   if (c.other_key) total++;
-
   return Math.round((total / 4) * 100);
 };
 
@@ -39,27 +36,28 @@ export default function Customers() {
   const [filter, setFilter] = useState("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
-    null
+    null,
   );
+
+  // 🔴 NEW: confirmation text state
+  const [confirmText, setConfirmText] = useState("");
 
   const fetchCustomers = async () => {
     try {
       const response = await getAllCustomers();
-      return setCustomers(response.customers);
+      setCustomers(response.customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
     }
   };
+
   useEffect(() => {
     fetchCustomers();
   }, []);
-  useEffect(() => {
-    fetchCustomers();
-  }, [setCustomers]);
 
   const handleDelete = async () => {
     if (!deleteCustomer) return;
@@ -70,11 +68,14 @@ export default function Customers() {
       await deleteKyc(deleteCustomer._id);
 
       toast.success("Customer deleted", {
-        description:
-          "Customer profile and KYC documents were removed successfully.",
-      });
+  description:
+    "Customer profile and KYC documents were removed successfully.",
+  className: "bg-black text-white border-none",
+});
+
 
       setDeleteCustomer(null);
+      setConfirmText("");
       fetchCustomers();
     } catch (err) {
       toast.error("Delete failed", {
@@ -85,7 +86,6 @@ export default function Customers() {
     }
   };
 
-  /* Render switch */
   if (selectedCustomer) {
     return (
       <div className="p-6">
@@ -106,22 +106,20 @@ export default function Customers() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search customers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      {/* Search */}
+      <div className="relative w-full sm:max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search customers..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Filters */}
       <Tabs defaultValue="all" onValueChange={setFilter}>
-        <TabsList className="w-full sm:w-auto grid grid-cols-3">
+        <TabsList className="grid grid-cols-3 w-full sm:w-auto">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
@@ -144,9 +142,8 @@ export default function Customers() {
           {filtered.map((c) => (
             <div
               key={c._id}
-              className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border bg-white shadow-sm hover:shadow-md transition"
+              className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border bg-white shadow-sm"
             >
-              {/* Left */}
               <div className="flex items-center gap-3 flex-1">
                 <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center">
                   <User className="h-5 w-5" />
@@ -157,17 +154,20 @@ export default function Customers() {
                 </div>
               </div>
 
-              {/* KYC Circle */}
               <div className="flex items-center gap-3">
                 <Badge
-                  variant={c.status === "approved" ? "default" : "secondary"}
+                  className={
+                    c.status === "approved"
+                      ? "bg-green-600 text-white"
+                      : "bg-yellow-400 text-black"
+                  }
                 >
                   {c.status.toUpperCase()}
                 </Badge>
+
                 <CircularProgress value={calculateKycProgress(c)} />
               </div>
 
-              {/* Action */}
               <Button
                 variant="outline"
                 size="sm"
@@ -176,11 +176,12 @@ export default function Customers() {
                 <Eye className="h-4 w-4 mr-2" />
                 View
               </Button>
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setDeleteCustomer(c)}
-                className="border-destructive text-destructive hover:bg-destructive/10"
+                className="border-destructive text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
               </Button>
@@ -188,28 +189,50 @@ export default function Customers() {
           ))}
         </CardContent>
       </Card>
+
+      {/* DELETE DIALOG */}
       <AlertDialog
         open={!!deleteCustomer}
-        onOpenChange={() => setDeleteCustomer(null)}
+        onOpenChange={() => {
+          setDeleteCustomer(null);
+          setConfirmText("");
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed">
+            <AlertDialogDescription>
               You are about to permanently delete{" "}
-              <span className="font-medium text-foreground">
-                {deleteCustomer?.name}
-              </span>{" "}
-              and all associated KYC documents. This action cannot be undone.
+              <span className="font-semibold">{deleteCustomer?.name}</span>.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* 🔴 EXTRA CONFIRM FOR APPROVED */}
+          {deleteCustomer?.status === "approved" && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Type <span className="font-semibold">confirm</span> to delete an
+                approved customer.
+              </p>
+              <Input
+                placeholder='Type "confirm"'
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+              />
+            </div>
+          )}
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
               onClick={handleDelete}
-              disabled={loading}
+              disabled={
+                loading ||
+                (deleteCustomer?.status === "approved" &&
+                  confirmText !== "confirm")
+              }
+              className="bg-destructive hover:bg-destructive/90"
             >
               {loading ? (
                 <>
@@ -258,8 +281,7 @@ function CircularProgress({ value }: { value: number }) {
           transform="rotate(-90 20 20)"
         />
       </svg>
-
-      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-gray-700">
+      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold">
         {value}%
       </div>
     </div>

@@ -104,9 +104,15 @@ export default function KYC() {
         });
       }
 
+      // 🔹 NORMALIZED NAME (frontend responsibility)
+      const normalizedName = form.name
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
       await submitKyc({
         customerId,
         name: form.name,
+        normalized_name: normalizedName, // ✅ BACKEND SYNC
         phone: form.phone,
         address: form.address,
         aadhaar: form.aadhaar,
@@ -137,9 +143,14 @@ export default function KYC() {
         voter: null,
         other: null,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("KYC submission failed");
+
+      if (err?.response?.status === 409) {
+        toast.error("KYC creation failed : Duplicate exists");
+      } else {
+        toast.error("KYC submission failed");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -218,8 +229,7 @@ export default function KYC() {
                 </Badge>
               ) : (
                 <Badge variant="secondary">
-                  <XCircle className="h-4 w-4 mr-1" /> Missing Required
-                  Documents
+                  <XCircle className="h-4 w-4 mr-1" /> Missing Required Documents
                 </Badge>
               )}
             </div>

@@ -14,6 +14,7 @@ export interface PresignKycResponse {
 export interface KycPayload {
   customerId: string;
   name: string;
+  normalized_name: string;
   phone: string;
   address: string;
   aadhaar: string;
