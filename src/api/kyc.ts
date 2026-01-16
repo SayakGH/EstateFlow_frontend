@@ -24,9 +24,7 @@ export const getPresignedUrls = async (payload: {
   const res = await api.post<PresignKycResponse>(
     "/customer-kyc/kyc/presign",
     payload,
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -40,35 +38,35 @@ export const submitKyc = async (payload: KycPayload) => {
   return res.data;
 };
 
-/* ================= FETCH CUSTOMERS ================= */
+/* ================= FETCH CUSTOMERS (PAGINATED) ================= */
 
-/** Fetch ALL customers (approved + pending) */
-export const getAllCustomers = async () => {
+export const getAllCustomers = async (page = 1, limit = 10) => {
   const res = await api.get<IGetCustomersResponse>("/customer-kyc/", {
     headers: authHeader(),
+    params: { page, limit },
   });
 
   return res.data;
 };
 
-/** Fetch ONLY APPROVED customers */
-export const getApprovedCustomers = async () => {
+export const getApprovedCustomers = async (page = 1, limit = 10) => {
   const res = await api.get<IGetCustomersResponse>(
     "/customer-kyc/approved",
     {
       headers: authHeader(),
+      params: { page, limit },
     }
   );
 
   return res.data;
 };
 
-/** Fetch ONLY PENDING customers */
-export const getPendingCustomers = async () => {
+export const getPendingCustomers = async (page = 1, limit = 10) => {
   const res = await api.get<IGetCustomersResponse>(
     "/customer-kyc/pending",
     {
       headers: authHeader(),
+      params: { page, limit },
     }
   );
 
@@ -81,9 +79,7 @@ export const approveKyc = async (customerId: string) => {
   const res = await api.put<KycResponse>(
     `/customer-kyc/approve/${customerId}`,
     {},
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -92,9 +88,7 @@ export const approveKyc = async (customerId: string) => {
 export const deleteKyc = async (customerId: string) => {
   const res = await api.delete<KycResponse>(
     `/customer-kyc/delete/${customerId}`,
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;

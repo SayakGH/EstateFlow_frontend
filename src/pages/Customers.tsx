@@ -27,6 +27,8 @@ import {
 
 import { toast } from "sonner";
 
+const PAGE_LIMIT = 10;
+
 const calculateKycProgress = (c: KycCustomer) => {
   let total = 0;
   if (c.aadhaar_key) total++;
@@ -47,19 +49,22 @@ export default function Customers() {
     useState<KycCustomer | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
+  // 🔹 Pagination state
+  const [page, setPage] = useState(1);
+
   /* ================= Fetch Customers ================= */
 
-  const fetchCustomers = async (type: typeof filter) => {
+  const fetchCustomers = async () => {
     try {
       setLoading(true);
 
       let response;
-      if (type === "approved") {
-        response = await getApprovedCustomers();
-      } else if (type === "pending") {
-        response = await getPendingCustomers();
+      if (filter === "approved") {
+        response = await getApprovedCustomers(page, PAGE_LIMIT);
+      } else if (filter === "pending") {
+        response = await getPendingCustomers(page, PAGE_LIMIT);
       } else {
-        response = await getAllCustomers();
+        response = await getAllCustomers(page, PAGE_LIMIT);
       }
 
       setCustomers(response.customers);
@@ -71,8 +76,14 @@ export default function Customers() {
     }
   };
 
+  // Fetch when filter or page changes
   useEffect(() => {
-    fetchCustomers(filter);
+    fetchCustomers();
+  }, [filter, page]);
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setPage(1);
   }, [filter]);
 
   /* ================= Delete ================= */
@@ -93,7 +104,7 @@ export default function Customers() {
 
       setDeleteCustomer(null);
       setConfirmText("");
-      fetchCustomers(filter);
+      fetchCustomers();
     } catch (err) {
       toast.error("Delete failed", {
         description: "Unable to delete customer. Please try again.",
@@ -120,7 +131,7 @@ export default function Customers() {
   /* ================= Search (client-side only) ================= */
 
   const filtered = customers.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
+    c.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -219,6 +230,29 @@ export default function Customers() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Pagination Controls */}
+      <div className="flex justify-between items-center">
+        <Button
+          variant="outline"
+          disabled={page === 1 || loading}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+
+        <span className="text-sm text-muted-foreground">
+          Page {page}
+        </span>
+
+        <Button
+          variant="outline"
+          disabled={customers.length < PAGE_LIMIT || loading}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
 
       {/* DELETE DIALOG */}
       <AlertDialog
