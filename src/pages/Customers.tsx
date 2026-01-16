@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, User, Eye, Trash2, Loader2 } from "lucide-react";
-import { deleteKyc, getAllCustomers } from "@/api/kyc";
+import {
+  deleteKyc,
+  getAllCustomers,
+  getApprovedCustomers,
+  getPendingCustomers,
+} from "@/api/kyc";
 import type { KycCustomer } from "@/types/kycTypes";
 import CustomerDetails from "./CustomerDetails";
 
@@ -33,31 +38,44 @@ const calculateKycProgress = (c: KycCustomer) => {
 
 export default function Customers() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
-    null,
-  );
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<KycCustomer | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
-    null,
-  );
-
-  // 🔴 NEW: confirmation text state
+  const [deleteCustomer, setDeleteCustomer] =
+    useState<KycCustomer | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
-  const fetchCustomers = async () => {
+  /* ================= Fetch Customers ================= */
+
+  const fetchCustomers = async (type: typeof filter) => {
     try {
-      const response = await getAllCustomers();
+      setLoading(true);
+
+      let response;
+      if (type === "approved") {
+        response = await getApprovedCustomers();
+      } else if (type === "pending") {
+        response = await getPendingCustomers();
+      } else {
+        response = await getAllCustomers();
+      }
+
       setCustomers(response.customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
+      toast.error("Failed to fetch customers");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    fetchCustomers(filter);
+  }, [filter]);
+
+  /* ================= Delete ================= */
 
   const handleDelete = async () => {
     if (!deleteCustomer) return;
@@ -68,15 +86,14 @@ export default function Customers() {
       await deleteKyc(deleteCustomer._id);
 
       toast.success("Customer deleted", {
-  description:
-    "Customer profile and KYC documents were removed successfully.",
-  className: "bg-black text-white border-none",
-});
-
+        description:
+          "Customer profile and KYC documents were removed successfully.",
+        className: "bg-black text-white border-none",
+      });
 
       setDeleteCustomer(null);
       setConfirmText("");
-      fetchCustomers();
+      fetchCustomers(filter);
     } catch (err) {
       toast.error("Delete failed", {
         description: "Unable to delete customer. Please try again.",
@@ -85,6 +102,8 @@ export default function Customers() {
       setLoading(false);
     }
   };
+
+  /* ================= Details View ================= */
 
   if (selectedCustomer) {
     return (
@@ -98,11 +117,11 @@ export default function Customers() {
     );
   }
 
-  const filtered = customers.filter((c) => {
-    const matchName = c.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filter === "all" || c.status === filter;
-    return matchName && matchStatus;
-  });
+  /* ================= Search (client-side only) ================= */
+
+  const filtered = customers.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
     <div className="space-y-5">
@@ -118,7 +137,12 @@ export default function Customers() {
       </div>
 
       {/* Filters */}
-      <Tabs defaultValue="all" onValueChange={setFilter}>
+      <Tabs
+        value={filter}
+        onValueChange={(v) =>
+          setFilter(v as "all" | "approved" | "pending")
+        }
+      >
         <TabsList className="grid grid-cols-3 w-full sm:w-auto">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
@@ -133,7 +157,13 @@ export default function Customers() {
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {filtered.length === 0 && (
+          {loading && (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          )}
+
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
               No customers found
             </div>
@@ -203,12 +233,11 @@ export default function Customers() {
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
             <AlertDialogDescription>
               You are about to permanently delete{" "}
-              <span className="font-semibold">{deleteCustomer?.name}</span>.
-              This action cannot be undone.
+              <span className="font-semibold">{deleteCustomer?.name}</span>. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          {/* 🔴 EXTRA CONFIRM FOR APPROVED */}
           {deleteCustomer?.status === "approved" && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">

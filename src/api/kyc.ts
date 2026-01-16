@@ -13,6 +13,8 @@ const authHeader = () => {
   };
 };
 
+/* ================= KYC UPLOAD ================= */
+
 export const getPresignedUrls = async (payload: {
   aadhaarType: string;
   panType: string;
@@ -38,6 +40,9 @@ export const submitKyc = async (payload: KycPayload) => {
   return res.data;
 };
 
+/* ================= FETCH CUSTOMERS ================= */
+
+/** Fetch ALL customers (approved + pending) */
 export const getAllCustomers = async () => {
   const res = await api.get<IGetCustomersResponse>("/customer-kyc/", {
     headers: authHeader(),
@@ -45,6 +50,32 @@ export const getAllCustomers = async () => {
 
   return res.data;
 };
+
+/** Fetch ONLY APPROVED customers */
+export const getApprovedCustomers = async () => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/approved",
+    {
+      headers: authHeader(),
+    }
+  );
+
+  return res.data;
+};
+
+/** Fetch ONLY PENDING customers */
+export const getPendingCustomers = async () => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/pending",
+    {
+      headers: authHeader(),
+    }
+  );
+
+  return res.data;
+};
+
+/* ================= ACTIONS ================= */
 
 export const approveKyc = async (customerId: string) => {
   const res = await api.put<KycResponse>(
