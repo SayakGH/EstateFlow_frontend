@@ -59,6 +59,22 @@ export default function KYC() {
   const handleSubmit = async () => {
     if (submitting) return;
 
+    // 🔐 VALIDATIONS
+    if (!/^\d{10}$/.test(form.phone)) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    if (!/^\d{12}$/.test(form.aadhaar)) {
+      toast.error("Aadhaar number must be exactly 12 digits");
+      return;
+    }
+
+    if (form.pan.length !== 10) {
+      toast.error("PAN number must be exactly 10 characters");
+      return;
+    }
+
     try {
       if (!files.aadhaar || !files.pan) {
         toast.error("Aadhaar and PAN are required");
@@ -104,7 +120,7 @@ export default function KYC() {
         });
       }
 
-      // 🔹 NORMALIZED NAME (frontend responsibility)
+      // 🔹 NORMALIZED NAME
       const normalizedName = form.name
         .toLowerCase()
         .replace(/\s+/g, "");
@@ -112,7 +128,7 @@ export default function KYC() {
       await submitKyc({
         customerId,
         name: form.name,
-        normalized_name: normalizedName, // ✅ BACKEND SYNC
+        normalized_name: normalizedName,
         phone: form.phone,
         address: form.address,
         aadhaar: form.aadhaar,
@@ -171,11 +187,19 @@ export default function KYC() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
+
             <Input
               placeholder="Phone Number"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={10}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value.replace(/\D/g, ""),
+                })
+              }
             />
+
             <Input
               placeholder="Full Address"
               value={form.address}
@@ -189,7 +213,12 @@ export default function KYC() {
               label="Aadhaar Number"
               required
               value={form.aadhaar}
-              onChange={(v) => setForm({ ...form, aadhaar: v })}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  aadhaar: v.replace(/\D/g, "").slice(0, 12),
+                })
+              }
               onFile={(f) => handleFile("aadhaar", f)}
               file={files.aadhaar}
             />
@@ -198,7 +227,12 @@ export default function KYC() {
               label="PAN Number"
               required
               value={form.pan}
-              onChange={(v) => setForm({ ...form, pan: v })}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  pan: v.toUpperCase().slice(0, 10),
+                })
+              }
               onFile={(f) => handleFile("pan", f)}
               file={files.pan}
             />

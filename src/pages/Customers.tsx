@@ -27,8 +27,6 @@ import {
 
 import { toast } from "sonner";
 
-const PAGE_LIMIT = 10;
-
 const calculateKycProgress = (c: KycCustomer) => {
   let total = 0;
   if (c.aadhaar_key) total++;
@@ -42,15 +40,18 @@ export default function Customers() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] =
-    useState<KycCustomer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] =
-    useState<KycCustomer | null>(null);
+  const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
+    null,
+  );
   const [confirmText, setConfirmText] = useState("");
 
-  // 🔹 Pagination state
+  // Pagination (backend driven)
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   /* ================= Fetch Customers ================= */
 
@@ -60,14 +61,15 @@ export default function Customers() {
 
       let response;
       if (filter === "approved") {
-        response = await getApprovedCustomers(page, PAGE_LIMIT);
+        response = await getApprovedCustomers(page, search);
       } else if (filter === "pending") {
-        response = await getPendingCustomers(page, PAGE_LIMIT);
+        response = await getPendingCustomers(page, search);
       } else {
-        response = await getAllCustomers(page, PAGE_LIMIT);
+        response = await getAllCustomers(page, search);
       }
 
       setCustomers(response.customers);
+      setTotalPages(response.totalPages);
     } catch (error) {
       console.error("Error fetching customers:", error);
       toast.error("Failed to fetch customers");
@@ -76,15 +78,15 @@ export default function Customers() {
     }
   };
 
-  // Fetch when filter or page changes
+  // Fetch when filter / page / search changes
   useEffect(() => {
     fetchCustomers();
-  }, [filter, page]);
+  }, [filter, page, search]);
 
-  // Reset page when tab changes
+  // Reset page when filter or search changes
   useEffect(() => {
     setPage(1);
-  }, [filter]);
+  }, [filter, search]);
 
   /* ================= Delete ================= */
 
@@ -123,16 +125,11 @@ export default function Customers() {
           customer={selectedCustomer}
           setSelectedCustomer={setSelectedCustomer}
           onBack={() => setSelectedCustomer(null)}
+          onStatusChange={fetchCustomers} // ✅ KEY FIX
         />
       </div>
     );
   }
-
-  /* ================= Search (client-side only) ================= */
-
-  const filtered = customers.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-5">
@@ -150,9 +147,7 @@ export default function Customers() {
       {/* Filters */}
       <Tabs
         value={filter}
-        onValueChange={(v) =>
-          setFilter(v as "all" | "approved" | "pending")
-        }
+        onValueChange={(v) => setFilter(v as "all" | "approved" | "pending")}
       >
         <TabsList className="grid grid-cols-3 w-full sm:w-auto">
           <TabsTrigger value="all">All</TabsTrigger>
@@ -174,13 +169,13 @@ export default function Customers() {
             </div>
           )}
 
-          {!loading && filtered.length === 0 && (
+          {!loading && customers.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
               No customers found
             </div>
           )}
 
-          {filtered.map((c) => (
+          {customers.map((c) => (
             <div
               key={c._id}
               className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border bg-white shadow-sm"
@@ -231,9 +226,11 @@ export default function Customers() {
         </CardContent>
       </Card>
 
-      {/* Pagination Controls */}
-      <div className="flex justify-between items-center">
+      {/* Pagination */}
+      <div className="flex justify-center items-center gap-2 flex-wrap">
+        {/* Previous */}
         <Button
+          size="sm"
           variant="outline"
           disabled={page === 1 || loading}
           onClick={() => setPage((p) => p - 1)}
@@ -241,13 +238,24 @@ export default function Customers() {
           Previous
         </Button>
 
-        <span className="text-sm text-muted-foreground">
-          Page {page}
-        </span>
+        {/* Page Numbers */}
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={p === page ? "default" : "outline"}
+            onClick={() => setPage(p)}
+            disabled={loading}
+          >
+            {p}
+          </Button>
+        ))}
 
+        {/* Next */}
         <Button
+          size="sm"
           variant="outline"
-          disabled={customers.length < PAGE_LIMIT || loading}
+          disabled={page === totalPages || loading}
           onClick={() => setPage((p) => p + 1)}
         >
           Next
@@ -267,8 +275,8 @@ export default function Customers() {
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
             <AlertDialogDescription>
               You are about to permanently delete{" "}
-              <span className="font-semibold">{deleteCustomer?.name}</span>. This
-              action cannot be undone.
+              <span className="font-semibold">{deleteCustomer?.name}</span>.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
