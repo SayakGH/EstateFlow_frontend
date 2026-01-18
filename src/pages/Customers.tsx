@@ -10,6 +10,9 @@ import {
   getAllCustomers,
   getApprovedCustomers,
   getPendingCustomers,
+  searchAllCustomers,
+  searchApprovedCustomers,
+  searchPendingCustomers,
 } from "@/api/kyc";
 import type { KycCustomer } from "@/types/kycTypes";
 import CustomerDetails from "./CustomerDetails";
@@ -27,6 +30,8 @@ import {
 
 import { toast } from "sonner";
 
+/* ================= Helpers ================= */
+
 const calculateKycProgress = (c: KycCustomer) => {
   let total = 0;
   if (c.aadhaar_key) total++;
@@ -37,35 +42,51 @@ const calculateKycProgress = (c: KycCustomer) => {
 };
 
 export default function Customers() {
-  const [search, setSearch] = useState("");
+  /* ================= State ================= */
+
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState<string | null>(null);
+
   const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
-    null,
-  );
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<KycCustomer | null>(null);
+
   const [loading, setLoading] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
-    null,
-  );
+  const [deleteCustomer, setDeleteCustomer] =
+    useState<KycCustomer | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
-  // Pagination (backend driven)
+  // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  /* ================= Fetch Customers ================= */
+  /* ================= Fetch Logic ================= */
 
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-
       let response;
-      if (filter === "approved") {
-        response = await getApprovedCustomers(page, search);
-      } else if (filter === "pending") {
-        response = await getPendingCustomers(page, search);
-      } else {
-        response = await getAllCustomers(page, search);
+
+      // 🔍 SEARCH MODE (TAB-AWARE)
+      if (activeSearch) {
+        if (filter === "approved") {
+          response = await searchApprovedCustomers(activeSearch, page);
+        } else if (filter === "pending") {
+          response = await searchPendingCustomers(activeSearch, page);
+        } else {
+          response = await searchAllCustomers(activeSearch, page);
+        }
+      }
+      // 📄 LIST MODE
+      else {
+        if (filter === "approved") {
+          response = await getApprovedCustomers(page);
+        } else if (filter === "pending") {
+          response = await getPendingCustomers(page);
+        } else {
+          response = await getAllCustomers(page);
+        }
       }
 
       setCustomers(response.customers);
@@ -78,15 +99,25 @@ export default function Customers() {
     }
   };
 
-  // Fetch when filter / page / search changes
+  // Fetch when page / filter / search mode changes
   useEffect(() => {
     fetchCustomers();
-  }, [filter, page, search]);
+  }, [page, filter, activeSearch]);
 
-  // Reset page when filter or search changes
+  // Reset page on filter or new search
   useEffect(() => {
     setPage(1);
-  }, [filter, search]);
+  }, [filter, activeSearch]);
+
+  /* ================= Search ================= */
+
+  const handleSearch = () => {
+    if (!searchInput.trim()) {
+      setActiveSearch(null);
+    } else {
+      setActiveSearch(searchInput.trim());
+    }
+  };
 
   /* ================= Delete ================= */
 
@@ -95,7 +126,6 @@ export default function Customers() {
 
     try {
       setLoading(true);
-
       await deleteKyc(deleteCustomer._id);
 
       toast.success("Customer deleted", {
@@ -107,7 +137,7 @@ export default function Customers() {
       setDeleteCustomer(null);
       setConfirmText("");
       fetchCustomers();
-    } catch (err) {
+    } catch {
       toast.error("Delete failed", {
         description: "Unable to delete customer. Please try again.",
       });
@@ -125,29 +155,36 @@ export default function Customers() {
           customer={selectedCustomer}
           setSelectedCustomer={setSelectedCustomer}
           onBack={() => setSelectedCustomer(null)}
-          onStatusChange={fetchCustomers} // ✅ KEY FIX
+          onStatusChange={fetchCustomers}
         />
       </div>
     );
   }
 
+  /* ================= UI ================= */
+
   return (
     <div className="space-y-5">
       {/* Search */}
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search customers..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex gap-2 max-w-sm">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customers..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button onClick={handleSearch}>Search</Button>
       </div>
 
       {/* Filters */}
       <Tabs
         value={filter}
-        onValueChange={(v) => setFilter(v as "all" | "approved" | "pending")}
+        onValueChange={(v) =>
+          setFilter(v as "all" | "approved" | "pending")
+        }
       >
         <TabsList className="grid grid-cols-3 w-full sm:w-auto">
           <TabsTrigger value="all">All</TabsTrigger>
@@ -228,7 +265,6 @@ export default function Customers() {
 
       {/* Pagination */}
       <div className="flex justify-center items-center gap-2 flex-wrap">
-        {/* Previous */}
         <Button
           size="sm"
           variant="outline"
@@ -238,7 +274,6 @@ export default function Customers() {
           Previous
         </Button>
 
-        {/* Page Numbers */}
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
           <Button
             key={p}
@@ -251,7 +286,6 @@ export default function Customers() {
           </Button>
         ))}
 
-        {/* Next */}
         <Button
           size="sm"
           variant="outline"
@@ -276,22 +310,15 @@ export default function Customers() {
             <AlertDialogDescription>
               You are about to permanently delete{" "}
               <span className="font-semibold">{deleteCustomer?.name}</span>.
-              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {deleteCustomer?.status === "approved" && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Type <span className="font-semibold">confirm</span> to delete an
-                approved customer.
-              </p>
-              <Input
-                placeholder='Type "confirm"'
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-              />
-            </div>
+            <Input
+              placeholder='Type "confirm"'
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
           )}
 
           <AlertDialogFooter>
@@ -303,16 +330,9 @@ export default function Customers() {
                 (deleteCustomer?.status === "approved" &&
                   confirmText !== "confirm")
               }
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

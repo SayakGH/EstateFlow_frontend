@@ -59,7 +59,8 @@ export default function KYC() {
   const handleSubmit = async () => {
     if (submitting) return;
 
-    // 🔐 VALIDATIONS
+    /* ================= VALIDATIONS ================= */
+
     if (!/^\d{10}$/.test(form.phone)) {
       toast.error("Phone number must be exactly 10 digits");
       return;
@@ -70,8 +71,10 @@ export default function KYC() {
       return;
     }
 
-    if (form.pan.length !== 10) {
-      toast.error("PAN number must be exactly 10 characters");
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+    if (!panRegex.test(form.pan.toUpperCase())) {
+      toast.error("Invalid PAN number format (e.g. ABCDE1234F)");
       return;
     }
 
@@ -120,9 +123,14 @@ export default function KYC() {
         });
       }
 
-      // 🔹 NORMALIZED NAME
+      /* ================= NORMALIZATION ================= */
+
       const normalizedName = form.name
         .toLowerCase()
+        .replace(/\s+/g, "");
+
+      const normalizedPan = form.pan
+        .toUpperCase()
         .replace(/\s+/g, "");
 
       await submitKyc({
@@ -133,6 +141,7 @@ export default function KYC() {
         address: form.address,
         aadhaar: form.aadhaar,
         pan: form.pan,
+        normalized_pan: normalizedPan,
         voter: form.voter,
         other: form.otherId,
         aadhaarKey: aadhaar.key,
