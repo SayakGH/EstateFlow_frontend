@@ -59,6 +59,25 @@ export default function KYC() {
   const handleSubmit = async () => {
     if (submitting) return;
 
+    /* ================= VALIDATIONS ================= */
+
+    if (!/^\d{10}$/.test(form.phone)) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    if (!/^\d{12}$/.test(form.aadhaar)) {
+      toast.error("Aadhaar number must be exactly 12 digits");
+      return;
+    }
+
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+    if (!panRegex.test(form.pan.toUpperCase())) {
+      toast.error("Invalid PAN number format (e.g. ABCDE1234F)");
+      return;
+    }
+
     try {
       if (!files.aadhaar || !files.pan) {
         toast.error("Aadhaar and PAN are required");
@@ -104,13 +123,25 @@ export default function KYC() {
         });
       }
 
+      /* ================= NORMALIZATION ================= */
+
+      const normalizedName = form.name
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
+      const normalizedPan = form.pan
+        .toUpperCase()
+        .replace(/\s+/g, "");
+
       await submitKyc({
         customerId,
         name: form.name,
+        normalized_name: normalizedName,
         phone: form.phone,
         address: form.address,
         aadhaar: form.aadhaar,
         pan: form.pan,
+        normalized_pan: normalizedPan,
         voter: form.voter,
         other: form.otherId,
         aadhaarKey: aadhaar.key,
@@ -137,9 +168,14 @@ export default function KYC() {
         voter: null,
         other: null,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("KYC submission failed");
+
+      if (err?.response?.status === 409) {
+        toast.error("KYC creation failed : Duplicate exists");
+      } else {
+        toast.error("KYC submission failed");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -160,11 +196,19 @@ export default function KYC() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
+
             <Input
               placeholder="Phone Number"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={10}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value.replace(/\D/g, ""),
+                })
+              }
             />
+
             <Input
               placeholder="Full Address"
               value={form.address}
@@ -178,7 +222,12 @@ export default function KYC() {
               label="Aadhaar Number"
               required
               value={form.aadhaar}
-              onChange={(v) => setForm({ ...form, aadhaar: v })}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  aadhaar: v.replace(/\D/g, "").slice(0, 12),
+                })
+              }
               onFile={(f) => handleFile("aadhaar", f)}
               file={files.aadhaar}
             />
@@ -187,7 +236,12 @@ export default function KYC() {
               label="PAN Number"
               required
               value={form.pan}
-              onChange={(v) => setForm({ ...form, pan: v })}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  pan: v.toUpperCase().slice(0, 10),
+                })
+              }
               onFile={(f) => handleFile("pan", f)}
               file={files.pan}
             />
@@ -218,8 +272,7 @@ export default function KYC() {
                 </Badge>
               ) : (
                 <Badge variant="secondary">
-                  <XCircle className="h-4 w-4 mr-1" /> Missing Required
-                  Documents
+                  <XCircle className="h-4 w-4 mr-1" /> Missing Required Documents
                 </Badge>
               )}
             </div>

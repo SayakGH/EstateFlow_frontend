@@ -4,8 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, User, Eye, Trash2 } from "lucide-react";
-import { deleteKyc, getAllCustomers } from "@/api/kyc";
+import { Search, User, Eye, Trash2, Loader2 } from "lucide-react";
+import {
+  deleteKyc,
+  getAllCustomers,
+  getApprovedCustomers,
+  getPendingCustomers,
+  searchAllCustomers,
+  searchApprovedCustomers,
+  searchPendingCustomers,
+} from "@/api/kyc";
 import type { KycCustomer } from "@/types/kycTypes";
 import CustomerDetails from "./CustomerDetails";
 
@@ -21,62 +29,115 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+
+/* ================= Helpers ================= */
 
 const calculateKycProgress = (c: KycCustomer) => {
   let total = 0;
-
   if (c.aadhaar_key) total++;
   if (c.pan_key) total++;
   if (c.voter_key) total++;
   if (c.other_key) total++;
-
   return Math.round((total / 4) * 100);
 };
 
 export default function Customers() {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  /* ================= State ================= */
+
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState<string | null>(null);
+
+  const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
-    null
-  );
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<KycCustomer | null>(null);
+
   const [loading, setLoading] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
-    null
-  );
+  const [deleteCustomer, setDeleteCustomer] =
+    useState<KycCustomer | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  /* ================= Fetch Logic ================= */
 
   const fetchCustomers = async () => {
     try {
-      const response = await getAllCustomers();
-      return setCustomers(response.customers);
+      setLoading(true);
+      let response;
+
+      // 🔍 SEARCH MODE (TAB-AWARE)
+      if (activeSearch) {
+        if (filter === "approved") {
+          response = await searchApprovedCustomers(activeSearch, page);
+        } else if (filter === "pending") {
+          response = await searchPendingCustomers(activeSearch, page);
+        } else {
+          response = await searchAllCustomers(activeSearch, page);
+        }
+      }
+      // 📄 LIST MODE
+      else {
+        if (filter === "approved") {
+          response = await getApprovedCustomers(page);
+        } else if (filter === "pending") {
+          response = await getPendingCustomers(page);
+        } else {
+          response = await getAllCustomers(page);
+        }
+      }
+
+      setCustomers(response.customers);
+      setTotalPages(response.totalPages);
     } catch (error) {
       console.error("Error fetching customers:", error);
+      toast.error("Failed to fetch customers");
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Fetch when page / filter / search mode changes
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [page, filter, activeSearch]);
+
+  // Reset page on filter or new search
   useEffect(() => {
-    fetchCustomers();
-  }, [setCustomers]);
+    setPage(1);
+  }, [filter, activeSearch]);
+
+  /* ================= Search ================= */
+
+  const handleSearch = () => {
+    if (!searchInput.trim()) {
+      setActiveSearch(null);
+    } else {
+      setActiveSearch(searchInput.trim());
+    }
+  };
+
+  /* ================= Delete ================= */
 
   const handleDelete = async () => {
     if (!deleteCustomer) return;
 
     try {
       setLoading(true);
-
       await deleteKyc(deleteCustomer._id);
 
       toast.success("Customer deleted", {
         description:
           "Customer profile and KYC documents were removed successfully.",
+        className: "bg-black text-white border-none",
       });
 
       setDeleteCustomer(null);
+      setConfirmText("");
       fetchCustomers();
-    } catch (err) {
+    } catch {
       toast.error("Delete failed", {
         description: "Unable to delete customer. Please try again.",
       });
@@ -85,7 +146,8 @@ export default function Customers() {
     }
   };
 
-  /* Render switch */
+  /* ================= Details View ================= */
+
   if (selectedCustomer) {
     return (
       <div className="p-6">
@@ -93,35 +155,38 @@ export default function Customers() {
           customer={selectedCustomer}
           setSelectedCustomer={setSelectedCustomer}
           onBack={() => setSelectedCustomer(null)}
+          onStatusChange={fetchCustomers}
         />
       </div>
     );
   }
 
-  const filtered = customers.filter((c) => {
-    const matchName = c.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filter === "all" || c.status === filter;
-    return matchName && matchStatus;
-  });
+  /* ================= UI ================= */
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
+      {/* Search */}
+      <div className="flex gap-2 max-w-sm">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search customers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-9"
           />
         </div>
+        <Button onClick={handleSearch}>Search</Button>
       </div>
 
       {/* Filters */}
-      <Tabs defaultValue="all" onValueChange={setFilter}>
-        <TabsList className="w-full sm:w-auto grid grid-cols-3">
+      <Tabs
+        value={filter}
+        onValueChange={(v) =>
+          setFilter(v as "all" | "approved" | "pending")
+        }
+      >
+        <TabsList className="grid grid-cols-3 w-full sm:w-auto">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
@@ -135,18 +200,23 @@ export default function Customers() {
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {filtered.length === 0 && (
+          {loading && (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          )}
+
+          {!loading && customers.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
               No customers found
             </div>
           )}
 
-          {filtered.map((c) => (
+          {customers.map((c) => (
             <div
               key={c._id}
-              className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border bg-white shadow-sm hover:shadow-md transition"
+              className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border bg-white shadow-sm"
             >
-              {/* Left */}
               <div className="flex items-center gap-3 flex-1">
                 <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center">
                   <User className="h-5 w-5" />
@@ -157,17 +227,20 @@ export default function Customers() {
                 </div>
               </div>
 
-              {/* KYC Circle */}
               <div className="flex items-center gap-3">
                 <Badge
-                  variant={c.status === "approved" ? "default" : "secondary"}
+                  className={
+                    c.status === "approved"
+                      ? "bg-green-600 text-white"
+                      : "bg-yellow-400 text-black"
+                  }
                 >
                   {c.status.toUpperCase()}
                 </Badge>
+
                 <CircularProgress value={calculateKycProgress(c)} />
               </div>
 
-              {/* Action */}
               <Button
                 variant="outline"
                 size="sm"
@@ -176,11 +249,12 @@ export default function Customers() {
                 <Eye className="h-4 w-4 mr-2" />
                 View
               </Button>
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setDeleteCustomer(c)}
-                className="border-destructive text-destructive hover:bg-destructive/10"
+                className="border-destructive text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
               </Button>
@@ -188,37 +262,77 @@ export default function Customers() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex justify-center items-center gap-2 flex-wrap">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page === 1 || loading}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Previous
+        </Button>
+
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={p === page ? "default" : "outline"}
+            onClick={() => setPage(p)}
+            disabled={loading}
+          >
+            {p}
+          </Button>
+        ))}
+
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page === totalPages || loading}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </Button>
+      </div>
+
+      {/* DELETE DIALOG */}
       <AlertDialog
         open={!!deleteCustomer}
-        onOpenChange={() => setDeleteCustomer(null)}
+        onOpenChange={() => {
+          setDeleteCustomer(null);
+          setConfirmText("");
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed">
+            <AlertDialogDescription>
               You are about to permanently delete{" "}
-              <span className="font-medium text-foreground">
-                {deleteCustomer?.name}
-              </span>{" "}
-              and all associated KYC documents. This action cannot be undone.
+              <span className="font-semibold">{deleteCustomer?.name}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {deleteCustomer?.status === "approved" && (
+            <Input
+              placeholder='Type "confirm"'
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
+          )}
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
               onClick={handleDelete}
-              disabled={loading}
+              disabled={
+                loading ||
+                (deleteCustomer?.status === "approved" &&
+                  confirmText !== "confirm")
+              }
+              className="bg-destructive"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -258,8 +372,7 @@ function CircularProgress({ value }: { value: number }) {
           transform="rotate(-90 20 20)"
         />
       </svg>
-
-      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-gray-700">
+      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold">
         {value}%
       </div>
     </div>

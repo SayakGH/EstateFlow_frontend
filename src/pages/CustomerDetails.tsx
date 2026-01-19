@@ -44,24 +44,27 @@ export default function CustomerDetails({
       const data: KycResponse = await approveKyc(customer._id);
 
       if (data.customer) {
-        setSelectedCustomer(data.customer); // ✅ update UI instantly
+        setSelectedCustomer(data.customer); // update details UI
       }
 
-      onStatusChange?.(); // optional: refresh list
+      onStatusChange?.(); // 🔥 REFRESH LIST
+      onBack();           // 🔥 GO BACK AFTER APPROVE
     } catch (err) {
       alert("Failed to approve KYC");
     } finally {
       setLoading(false);
     }
   };
+
   const handleReject = async () => {
     try {
       setLoading(true);
 
       await deleteKyc(customer._id);
+      onStatusChange?.(); // 🔥 REFRESH LIST
       onBack();
     } catch (err) {
-      alert("Failed to approve KYC");
+      alert("Failed to reject KYC");
     } finally {
       setLoading(false);
     }
@@ -69,7 +72,14 @@ export default function CustomerDetails({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <Button variant="ghost" onClick={onBack} className="mb-2">
+      <Button
+        variant="ghost"
+        onClick={() => {
+          onStatusChange?.(); // 🔥 ensure list is fresh
+          onBack();
+        }}
+        className="mb-2"
+      >
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Customers
       </Button>
@@ -79,37 +89,39 @@ export default function CustomerDetails({
         <CardHeader className="flex flex-row justify-between items-center">
           <div className="flex flex-row items-center gap-2">
             <CardTitle className="text-xl">{customer.name}</CardTitle>
-            <Badge className="uppercase">{customer.status}</Badge>
+            <Badge
+              className={`uppercase ${
+                customer.status === "approved"
+                  ? "bg-green-600 text-white"
+                  : "bg-yellow-400 text-black"
+              }`}
+            >
+              {customer.status}
+            </Badge>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* <Badge className="uppercase">{customer.status}</Badge> */}
+          {customer.status === "pending" && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setApproveOpen(true)}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Approve
+              </Button>
 
-            {customer.status === "pending" && (
-              <div className="flex items-center gap-2">
-                {/* Approve */}
-                <Button
-                  size="sm"
-                  onClick={() => setApproveOpen(true)}
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Approve
-                </Button>
-
-                {/* Reject */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRejectOpen(true)}
-                  className="gap-2 border-destructive text-destructive hover:bg-destructive/10"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject
-                </Button>
-              </div>
-            )}
-          </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRejectOpen(true)}
+                className="gap-2 border-destructive text-destructive hover:bg-destructive/10"
+              >
+                <XCircle className="h-4 w-4" />
+                Reject
+              </Button>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -139,75 +151,46 @@ export default function CustomerDetails({
           )}
         </CardContent>
       </Card>
+
+      {/* Approve Dialog */}
       <AlertDialog open={approveOpen} onOpenChange={setApproveOpen}>
         <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader className="space-y-2">
+          <AlertDialogHeader>
             <AlertDialogTitle>Approve KYC</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to approve KYC for{" "}
-              <span className="font-medium text-foreground">
-                {customer.name}
-              </span>
-              . This confirms the customer’s identity.
+              Approve KYC for <b>{customer.name}</b>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleApprove}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              className="bg-emerald-600 text-white"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Approving
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4" />
-                  Approve
-                </>
-              )}
+              {loading ? <Loader2 className="animate-spin" /> : "Approve"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reject Dialog */}
       <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader className="space-y-2">
-            <AlertDialogTitle>Reject & Delete KYC</AlertDialogTitle>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject & Delete</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete{" "}
-              <span className="font-medium text-foreground">
-                {customer.name}
-              </span>
-              ’s profile and all uploaded KYC documents.
-              <span className="text-muted-foreground">
-                This action cannot be undone.
-              </span>
+              This will permanently delete the customer.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReject}
               disabled={loading}
-              className="bg-destructive hover:bg-destructive/90 gap-2"
+              className="bg-destructive"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Deleting
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4" />
-                  Reject
-                </>
-              )}
+              {loading ? <Loader2 className="animate-spin" /> : "Reject"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

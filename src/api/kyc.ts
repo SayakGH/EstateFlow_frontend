@@ -13,6 +13,8 @@ const authHeader = () => {
   };
 };
 
+/* ================= KYC UPLOAD ================= */
+
 export const getPresignedUrls = async (payload: {
   aadhaarType: string;
   panType: string;
@@ -22,9 +24,7 @@ export const getPresignedUrls = async (payload: {
   const res = await api.post<PresignKycResponse>(
     "/customer-kyc/kyc/presign",
     payload,
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -38,21 +38,101 @@ export const submitKyc = async (payload: KycPayload) => {
   return res.data;
 };
 
-export const getAllCustomers = async () => {
+/* ================= LISTING (PAGINATION ONLY) ================= */
+
+/** Fetch ALL customers */
+export const getAllCustomers = async (page = 1) => {
   const res = await api.get<IGetCustomersResponse>("/customer-kyc/", {
     headers: authHeader(),
+    params: { page },
   });
 
   return res.data;
 };
 
+/** Fetch ONLY APPROVED customers */
+export const getApprovedCustomers = async (page = 1) => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/approved",
+    {
+      headers: authHeader(),
+      params: { page },
+    }
+  );
+
+  return res.data;
+};
+
+/** Fetch ONLY PENDING customers */
+export const getPendingCustomers = async (page = 1) => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/pending",
+    {
+      headers: authHeader(),
+      params: { page },
+    }
+  );
+
+  return res.data;
+};
+
+/* ================= SEARCH (TAB-WISE, PAGINATED) ================= */
+
+/** Search in ALL customers */
+export const searchAllCustomers = async (
+  query: string,
+  page = 1
+) => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/search/all",
+    {
+      headers: authHeader(),
+      params: { query, page },
+    }
+  );
+
+  return res.data;
+};
+
+/** Search ONLY APPROVED customers */
+export const searchApprovedCustomers = async (
+  query: string,
+  page = 1
+) => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/search/approved",
+    {
+      headers: authHeader(),
+      params: { query, page },
+    }
+  );
+
+  return res.data;
+};
+
+/** Search ONLY PENDING customers */
+export const searchPendingCustomers = async (
+  query: string,
+  page = 1
+) => {
+  const res = await api.get<IGetCustomersResponse>(
+    "/customer-kyc/search/pending",
+    {
+      headers: authHeader(),
+      params: { query, page },
+    }
+  );
+
+  return res.data;
+};
+
+/* ================= ACTIONS ================= */
+
 export const approveKyc = async (customerId: string) => {
   const res = await api.put<KycResponse>(
     `/customer-kyc/approve/${customerId}`,
     {},
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -61,9 +141,7 @@ export const approveKyc = async (customerId: string) => {
 export const deleteKyc = async (customerId: string) => {
   const res = await api.delete<KycResponse>(
     `/customer-kyc/delete/${customerId}`,
-    {
-      headers: authHeader(),
-    }
+    { headers: authHeader() }
   );
 
   return res.data;
