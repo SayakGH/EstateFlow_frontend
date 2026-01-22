@@ -16,8 +16,22 @@ import { Progress } from "@/components/ui/progress";
 import ProjectInventory from "./ProjectInventory";
 import { Plus, Upload, Eye } from "lucide-react";
 import { useEffect } from "react";
-import { getAllProjects, createProject } from "@/api/projects";
+import { getAllProjects, createProject, deleteProject } from "@/api/projects";
 import type { FlatPayload, IProject } from "@/types/projectTypes";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+import { Trash2 } from "lucide-react";
 
 export default function Projects() {
   const [open, setOpen] = useState(false);
@@ -28,18 +42,16 @@ export default function Projects() {
 
   const [projects, setProjects] = useState<IProject[]>([]);
   const [loading, setLoading] = useState(false);
+  const fetchProjects = async () => {
+    try {
+      const res = await getAllProjects();
 
+      setProjects(res.projects);
+    } catch (err) {
+      console.error("Failed to fetch projects", err);
+    }
+  };
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await getAllProjects();
-
-        setProjects(res.projects);
-      } catch (err) {
-        console.error("Failed to fetch projects", err);
-      }
-    };
-
     fetchProjects();
   }, []);
 
@@ -52,6 +64,16 @@ export default function Projects() {
       />
     );
   }
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+
+      fetchProjects();
+    } catch (err) {
+      console.error("Delete failed", err);
+      alert("Failed to delete project");
+    }
+  };
 
   const handleSubmit = async () => {
     if (!projectName || !file) {
@@ -105,11 +127,6 @@ export default function Projects() {
       setLoading(false);
     }
   };
-
-  // const soldPercentage =
-  //   project.totalApartments > 0
-  //     ? Math.round((project.soldApartments / project.totalApartments) * 100)
-  //     : 0;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -181,15 +198,51 @@ export default function Projects() {
                 </div>
 
                 {/* Action */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setSelectedProject(project)}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Project
-                </Button>
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setSelectedProject(project)}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Project
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete{" "}
+                          <span className="font-semibold">{project.name}</span>{" "}
+                          and all associated apartments. This action cannot be
+                          undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={() => handleDeleteProject(project.projectId)}
+                        >
+                          Yes, Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardContent>
             </Card>
           );

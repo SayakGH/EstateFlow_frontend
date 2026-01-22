@@ -41,3 +41,13 @@ export interface GetAllProjectsResponse {
   success: boolean;
   projects: IProject[];
 }
+
+export interface IProjectName {
+  id: string;
+  name: string;
+}
+
+export interface GetAllProjectNamesResponse {
+  success: boolean;
+  projects: IProjectName[];
+}

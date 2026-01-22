@@ -3,6 +3,7 @@ import type {
   CreateProjectPayload,
   CreateProjectResponse,
   FlatPayload,
+  GetAllProjectNamesResponse,
   GetAllProjectsResponse,
 } from "@/types/projectTypes";
 
@@ -38,6 +39,37 @@ export const getProjectFlats = async (projectId: string) => {
   }>(`/projects/flats/${projectId}`, {
     headers: authHeader(),
   });
+
+  return res.data;
+};
+
+export const getProjectNames = async () => {
+  const res = await api.get<GetAllProjectNamesResponse>(
+    `/projects/projects-id-name`,
+    {
+      headers: authHeader(),
+    },
+  );
+
+  return res.data;
+};
+export const approveLoan = async (projectId: string, flatId: string) => {
+  const res = await api.put(
+    `/projects/${projectId}/flats/${flatId}/approve-loan`,
+    {},
+    { headers: authHeader() },
+  );
+
+  return res.data;
+};
+
+export const deleteProject = async (projectid: string) => {
+  const res = await api.delete<GetAllProjectNamesResponse>(
+    `/projects/${projectid}`,
+    {
+      headers: authHeader(),
+    },
+  );
 
   return res.data;
 };

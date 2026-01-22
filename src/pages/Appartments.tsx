@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,95 +19,50 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ApartmentDetailsPage from "./ApartmentDetails";
-
-// ----------------- DUMMY PROJECTS -----------------
-const projects = [
-  { id: "P1", name: "Green Valley Residency" },
-  { id: "P2", name: "Sunshine Heights" },
-  { id: "P3", name: "Urban Nest Apartments" },
-];
-
-// ----------------- DUMMY FLATS -----------------
-const flatsData = [
-  {
-    projectId: "P1",
-    block: "A",
-    bhk: 2,
-    status: "free",
-    sqft: 950,
-    flatno: "101",
-    floor: 1,
-    flatId: "P1-A-1-101",
-  },
-  {
-    projectId: "P1",
-    block: "A",
-    bhk: 3,
-    status: "booked",
-    sqft: 1050,
-    flatno: "102",
-    floor: 1,
-    flatId: "P1-A-1-102",
-  },
-  {
-    projectId: "P1",
-    block: "B",
-    bhk: 2,
-    status: "free",
-    sqft: 900,
-    flatno: "101",
-    floor: 1,
-    flatId: "P1-B-1-101",
-  },
-
-  {
-    projectId: "P2",
-    block: "A",
-    bhk: 2,
-    status: "free",
-    sqft: 940,
-    flatno: "101",
-    floor: 1,
-    flatId: "P2-A-1-101",
-  },
-  {
-    projectId: "P2",
-    block: "B",
-    bhk: 3,
-    status: "sold",
-    sqft: 1120,
-    flatno: "202",
-    floor: 2,
-    flatId: "P2-B-2-202",
-  },
-
-  {
-    projectId: "P3",
-    block: "C",
-    bhk: 2,
-    status: "free",
-    sqft: 880,
-    flatno: "101",
-    floor: 1,
-    flatId: "P3-C-1-101",
-  },
-];
+import type { IProjectName } from "@/types/projectTypes";
+import { getProjectFlats, getProjectNames } from "@/api/projects";
 
 export default function Apartments() {
   const [search, setSearch] = useState("");
-  const [selectedProject, setSelectedProject] = useState("all");
+  const [selectedProject, setSelectedProject] = useState<string | undefined>(
+    undefined,
+  );
+
   const [selectedFlat, setSelectedFlat] = useState<any | null>(null);
+  const [projects, setProjects] = useState<IProjectName[]>([]);
+  const [flats, setFlats] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const filteredFlats = flatsData.filter((flat) => {
-    const matchesProject =
-      selectedProject === "all" || flat.projectId === selectedProject;
-
+  const filteredFlats = flats.filter((flat) => {
     const matchesSearch =
       flat.flatno.includes(search) ||
       flat.flatId.toLowerCase().includes(search.toLowerCase());
 
-    return matchesProject && matchesSearch;
+    return matchesSearch;
   });
+
+  const fetchProjects = async () => {
+    const data = await getProjectNames();
+    setProjects(data.projects);
+
+    if (data.projects.length > 0) {
+      setSelectedProject(data.projects[0].id); // auto-select first project
+    }
+  };
+
+  const fetchFlatsByProject = async (projectId: string | undefined) => {
+    if (!projectId) return;
+
+    try {
+      setLoading(true);
+      const data = await getProjectFlats(projectId);
+      setFlats(data.flats);
+    } catch (err) {
+      console.error("Error fetching flats:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const statusColor = (status: string) => {
     if (status === "free") return "bg-green-500";
@@ -118,6 +73,16 @@ export default function Apartments() {
   const getProjectName = (id: string) =>
     projects.find((p) => p.id === id)?.name || id;
 
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProject) {
+      fetchFlatsByProject(selectedProject);
+    }
+  }, [selectedProject]);
+
   if (selectedFlat) {
     return (
       <ApartmentDetailsPage
@@ -126,6 +91,29 @@ export default function Apartments() {
         onBack={() => setSelectedFlat(null)}
         onPay={() => alert(`Paying for ${selectedFlat.flatId}`)}
       />
+    );
+  }
+  //   if (loading) {
+  //   return (
+  //     <div className="w-full px-4 md:px-8 py-6 space-y-4">
+  //       <h2 className="text-xl font-bold">🏢 Apartment Inventory</h2>
+
+  //       <div className="space-y-4">
+  //         {[1, 2, 3, 4].map((i) => (
+  //           <div
+  //             key={i}
+  //             className="h-20 bg-gray-200 animate-pulse rounded-md"
+  //           />
+  //         ))}
+  //       </div>
+  //     </div>
+  //   );
+  // }
+  if (!loading && selectedProject && flats.length === 0) {
+    return (
+      <div className="text-center mt-10 text-gray-500">
+        No flats found for this project.
+      </div>
     );
   }
 
@@ -149,12 +137,17 @@ export default function Apartments() {
                 <SelectValue placeholder="Select Project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
+                {projects.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    No projects found
                   </SelectItem>
-                ))}
+                ) : (
+                  projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

@@ -2,8 +2,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CreditCard } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { searchApprovedCustomers } from "@/api/kyc";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { approveLoan } from "@/api/projects";
+import { getBookedFlat } from "@/api/bookings";
+import type { BookedFlat } from "@/types/bookingTypes";
+import { bookFlat, addPayment, getFlatPaymentHistory } from "@/api/bookings";
 
 export interface Apartment {
   projectId: string;
@@ -34,37 +50,189 @@ export default function ApartmentDetailsPage({
     sold: "bg-red-600",
   };
 
-  const fakeCustomers = [
-    { id: "C1", name: "Rahul Sharma", phone: "9876543210" },
-    { id: "C2", name: "Amit Patel", phone: "9123456789" },
-    { id: "C3", name: "Priya Singh", phone: "9000012345" },
-  ];
-
   const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [currentFlat, setCurrentFlat] = useState(flat);
+
   const [rate, setRate] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
   const [loading, setLoading] = useState(false);
   const [nextPaymentDate, setNextPaymentDate] = useState("");
+  const [bookedData, setBookedData] = useState<null | BookedFlat>(null);
+  const [paymentMode, setPaymentMode] = useState<
+    "Bank Transfer" | "Cheque" | "UPI" | "Cash" | "Demand Draft" | "Others"
+  >("UPI");
+
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [chequeNumber, setChequeNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+
+  const fetchCustomers = async (query: string) => {
+    if (!query.trim()) {
+      setCustomers([]);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+      const data = await searchApprovedCustomers(query, 1);
+      setCustomers(data.customers || []);
+    } catch (err) {
+      console.error("Customer search failed:", err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const fetchBookingData = async () => {
+    getBookedFlat(currentFlat.projectId, currentFlat.flatId)
+      .then((res) => {
+        setBookedData(res.booked);
+      })
+      .catch(() => {
+        console.warn("Flat not booked or missing data");
+      });
+  };
+
+  useEffect(() => {
+    if (currentFlat.status != "free") {
+      fetchBookingData();
+    }
+  }, [currentFlat.status]);
+  const fetchHistory = async () => {
+    if (
+      !currentFlat?.projectId ||
+      !currentFlat?.flatId ||
+      currentFlat.status === "free"
+    ) {
+      setPaymentHistory([]);
+      return;
+    }
+
+    try {
+      setHistoryLoading(true);
+
+      const data = await getFlatPaymentHistory(
+        currentFlat.projectId,
+        currentFlat.flatId,
+      );
+
+      setPaymentHistory(data.payments || []);
+    } catch (err) {
+      console.error("Failed to load payment history", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchHistory();
+  }, [currentFlat]);
 
   const handleAddPayment = async () => {
+    if (!amountPaid) return alert("Enter payment amount");
+
     setLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1200)); // fake API delay
+    try {
+      const res = await addPayment(currentFlat.projectId, currentFlat.flatId, {
+        amount: Number(amountPaid),
+        summary: {
+          mode: paymentMode,
+          chequeNumber: chequeNumber || null,
+          bankName: bankName || null,
+        },
+      });
+      if (
+        Number(amountPaid) + (bookedData?.paid || 0) >=
+        Number(bookedData?.totalPayment) * 0.5
+      ) {
+        setCurrentFlat((prev) => ({
+          ...prev,
+          status: "sold",
+        }));
+      }
+      fetchBookingData();
+      fetchHistory();
 
-    alert(
-      `Payment Added!\nCustomer: ${selectedCustomer.name}\nRate: ₹${rate}/sq.ft\nAmount Paid: ₹${amountPaid}\nNext Payment: ${
-        nextPaymentDate || "Not scheduled"
-      }`,
-    );
+      // Clear input
+      setAmountPaid("");
+      setChequeNumber("");
+      setBankName("");
+    } catch (err) {
+      console.error(err);
+      alert("Payment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // reset
-    setCustomerSearch("");
-    setSelectedCustomer(null);
-    setRate("");
-    setAmountPaid("");
-    setNextPaymentDate("");
-    setLoading(false);
+  const handleBookFlat = async () => {
+    if (!selectedCustomer || !rate || !amountPaid) {
+      return alert("Select customer, rate, and amount");
+    }
+
+    setLoading(true);
+
+    try {
+      await bookFlat(currentFlat.projectId, currentFlat.flatId, {
+        customer: {
+          id: selectedCustomer._id,
+          name: selectedCustomer.name,
+        },
+        amount: Number(amountPaid),
+        totalPayment: Number(rate),
+        summary: {
+          mode: paymentMode,
+          chequeNumber: chequeNumber || null,
+          bankName: bankName || null,
+        },
+      });
+      if (Number(amountPaid) >= Number(rate) * 0.5) {
+        setCurrentFlat((prev) => ({
+          ...prev,
+          status: "sold",
+        }));
+      } else {
+        setCurrentFlat((prev) => ({
+          ...prev,
+          status: "booked",
+        }));
+      }
+
+      // Reset fields
+      setSelectedCustomer(null);
+      setCustomerSearch("");
+      setRate("");
+      setAmountPaid("");
+    } catch (err) {
+      console.error(err);
+      alert("Booking failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveLoan = async () => {
+    try {
+      setLoading(true);
+
+      await approveLoan(currentFlat.projectId, currentFlat.flatId);
+
+      // 🔥 Instant UI update — only status changes
+      setCurrentFlat((prev) => ({
+        ...prev,
+        status: "sold",
+      }));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to approve loan");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -79,41 +247,85 @@ export default function ApartmentDetailsPage({
         <CardHeader className="flex flex-row justify-between items-center">
           <div className="flex items-center gap-3">
             <CardTitle className="text-xl">
-              Flat {flat.block}-{flat.flatno}
+              {currentFlat.block}-{currentFlat.flatno}
+              <p className="text-xs text-muted-foreground">{projectName}</p>
             </CardTitle>
-            <Badge className={`${statusColor[flat.status]} uppercase`}>
-              {flat.status}
+            <Badge className={`${statusColor[currentFlat.status]} uppercase`}>
+              {currentFlat.status}
             </Badge>
           </div>
 
-          {/* {flat.status === "free" && (
-            <Button
-              className="gap-2 bg-blue-600 hover:bg-blue-700"
-              onClick={onPay}
-            >
-              <CreditCard className="h-4 w-4" />
-              Proceed to Payment
-            </Button>
-          )} */}
+          {currentFlat.status === "booked" && (
+            <div className="flex gap-3 items-center">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    disabled={loading}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {loading ? "Approving..." : "Approve Loan"}
+                  </Button>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Approve Loan?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to approve the loan for
+                      <span className="font-semibold">
+                        {" "}
+                        Flat {currentFlat.flatId}
+                      </span>
+                      ? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleApproveLoan}>
+                      Yes, Approve
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          <InfoCompact label="Project" value={projectName} />
-          <InfoCompact label="Block" value={flat.block} />
-          <InfoCompact label="Floor" value={String(flat.floor)} />
-          <InfoCompact label="Flat No" value={flat.flatno} />
-          <InfoCompact label="BHK" value={`${flat.bhk} BHK`} />
-          <InfoCompact label="Carpet Area" value={`${flat.sqft} sq.ft`} />
-          {flat.status !== "free" && (
-            <InfoCompact label="Customer Name" value={"Rahul Sharma"} />
+          <InfoCompact label="Block" value={currentFlat.block} />
+          <InfoCompact label="Floor" value={String(currentFlat.floor)} />
+          <InfoCompact label="BHK" value={`${currentFlat.bhk} BHK`} />
+          <InfoCompact
+            label="Carpet Area"
+            value={`${currentFlat.sqft} sq.ft`}
+          />
+          {currentFlat.status !== "free" && (
+            <InfoCompact
+              label="Customer Name"
+              value={bookedData?.customer_name || "N/A"}
+            />
           )}
-          {flat.status !== "free" && (
-            <InfoCompact label="Total Paid" value={"10,00,00,000"} />
+          {currentFlat.status !== "free" && (
+            <InfoCompact
+              label="Total Amount"
+              value={String(bookedData?.totalPayment) || "N/A"}
+            />
+          )}
+          {currentFlat.status !== "free" && (
+            <InfoCompact
+              label="Total Paid"
+              value={String(bookedData?.paid) || "N/A"}
+            />
+          )}
+          {currentFlat.status !== "free" && (
+            <InfoCompact label="Next Payment" value={"1-33-5003"} />
           )}
         </CardContent>
       </Card>
 
-      {flat.status === "free" && (
+      {currentFlat.status === "free" && (
         <Card>
           <CardHeader>
             <CardTitle>Add Payments</CardTitle>
@@ -127,26 +339,34 @@ export default function ApartmentDetailsPage({
               <Input
                 placeholder="Search customer name..."
                 value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCustomerSearch(value);
+                  fetchCustomers(value);
+                }}
                 className="mt-1"
               />
 
               {/* ===== FLOATING RESULTS PANEL ===== */}
               {customerSearch && (
                 <div className="absolute left-0 right-0 top-[72px] z-50 bg-white border rounded-xl shadow-lg p-2 space-y-1">
-                  {fakeCustomers
-                    .filter((c) =>
-                      c.name
-                        .toLowerCase()
-                        .includes(customerSearch.toLowerCase()),
-                    )
-                    .map((c) => (
+                  {searchLoading ? (
+                    <p className="text-sm text-muted-foreground p-2">
+                      Searching...
+                    </p>
+                  ) : customers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-2">
+                      No approved customers found
+                    </p>
+                  ) : (
+                    customers.map((c) => (
                       <div
                         key={c.id}
                         className="flex justify-between items-center p-2 hover:bg-muted rounded-lg cursor-pointer"
                         onClick={() => {
                           setSelectedCustomer(c);
                           setCustomerSearch("");
+                          setCustomers([]);
                         }}
                       >
                         <div>
@@ -159,14 +379,7 @@ export default function ApartmentDetailsPage({
                           Select
                         </Button>
                       </div>
-                    ))}
-
-                  {fakeCustomers.filter((c) =>
-                    c.name.toLowerCase().includes(customerSearch.toLowerCase()),
-                  ).length === 0 && (
-                    <p className="text-sm text-muted-foreground p-2">
-                      No customers found
-                    </p>
+                    ))
                   )}
                 </div>
               )}
@@ -182,7 +395,7 @@ export default function ApartmentDetailsPage({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm">Rate per sq.ft</label>
+                    <label className="text-sm">Total Amount</label>
                     <Input
                       type="number"
                       placeholder="e.g. 5000"
@@ -201,13 +414,50 @@ export default function ApartmentDetailsPage({
                     />
                   </div>
                 </div>
+                <div>
+                  <label className="text-sm">Payment Mode</label>
+                  <select
+                    className="w-full mt-1 border rounded px-2 py-2 text-sm"
+                    value={paymentMode}
+                    onChange={(e) => setPaymentMode(e.target.value as any)}
+                  >
+                    <option>UPI</option>
+                    <option>Cash</option>
+                    <option>Bank Transfer</option>
+                    <option>Cheque</option>
+                    <option>Demand Draft</option>
+                    <option>Others</option>
+                  </select>
+                </div>
+
+                {paymentMode === "Cheque" && (
+                  <>
+                    <div>
+                      <label className="text-sm">Cheque Number</label>
+                      <Input
+                        placeholder="Cheque Number"
+                        value={chequeNumber}
+                        onChange={(e) => setChequeNumber(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm">Bank Name</label>
+                      <Input
+                        placeholder="Bank Name"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <Button
                   className="w-full mt-2"
-                  onClick={handleAddPayment}
+                  onClick={handleBookFlat}
                   disabled={loading}
                 >
-                  {loading ? "Saving..." : "Add Payment"}
+                  {loading ? "Booking..." : "Book Flat"}
                 </Button>
               </div>
             )}
@@ -215,27 +465,22 @@ export default function ApartmentDetailsPage({
         </Card>
       )}
 
-      {flat.status != "free" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add Payments</CardTitle>
-          </CardHeader>
+      {currentFlat.status !== "free" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ================= ADD PAYMENT CARD ================= */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Add Payments</CardTitle>
+            </CardHeader>
 
-          <CardContent className="space-y-4 relative">
-            <div className="bg-muted/40 p-4 rounded-lg space-y-3">
-              <p className="text-sm text-muted-foreground">Selected Customer</p>
-              <p className="font-semibold">{"Rahul sharma"}</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* <div>
-                    <label className="text-sm">Rate per sq.ft</label>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 5000"
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
-                    />
-                  </div> */}
+            <CardContent className="space-y-4 relative">
+              <div className="bg-muted/40 p-4 rounded-lg space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Selected Customer
+                </p>
+                <p className="font-semibold">
+                  {bookedData?.customer_name || "N/A"}
+                </p>
 
                 <div>
                   <label className="text-sm">Amount Paid</label>
@@ -246,33 +491,115 @@ export default function ApartmentDetailsPage({
                     onChange={(e) => setAmountPaid(e.target.value)}
                   />
                 </div>
-              </div>
 
-              <Button
-                className="w-full mt-2"
-                onClick={handleAddPayment}
-                disabled={loading}
-              >
-                {loading ? "Saving..." : "Add Payment"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div>
+                  <label className="text-sm">Payment Mode</label>
+                  <select
+                    className="w-full mt-1 border rounded px-2 py-2 text-sm"
+                    value={paymentMode}
+                    onChange={(e) => setPaymentMode(e.target.value as any)}
+                  >
+                    <option>UPI</option>
+                    <option>Cash</option>
+                    <option>Bank Transfer</option>
+                    <option>Cheque</option>
+                    <option>Demand Draft</option>
+                    <option>Others</option>
+                  </select>
+                </div>
+
+                {paymentMode === "Cheque" && (
+                  <>
+                    <div>
+                      <label className="text-sm">Cheque Number</label>
+                      <Input
+                        placeholder="Cheque Number"
+                        value={chequeNumber}
+                        onChange={(e) => setChequeNumber(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm">Bank Name</label>
+                      <Input
+                        placeholder="Bank Name"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <Button
+                  className="w-full mt-2"
+                  onClick={handleAddPayment}
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Add Payment"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ================= PAYMENT HISTORY CARD ================= */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment History</CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-3 max-h-[320px] overflow-y-auto">
+              {historyLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading history...
+                </p>
+              ) : paymentHistory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No payments made yet
+                </p>
+              ) : (
+                paymentHistory.map((p) => (
+                  <div
+                    key={p.paymentId}
+                    className="border rounded-lg p-3 flex justify-between items-start"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm">
+                        ₹ {p.amount.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(p.createdAt).toLocaleString()}
+                      </p>
+                      <p className="text-xs">
+                        Mode:{" "}
+                        <span className="font-medium">{p.summary?.mode}</span>
+                      </p>
+
+                      {p.summary?.chequeNumber && (
+                        <p className="text-xs">
+                          Cheque: {p.summary.chequeNumber}
+                        </p>
+                      )}
+
+                      {p.summary?.bank && (
+                        <p className="text-xs">Bank: {p.summary.bank}</p>
+                      )}
+                    </div>
+
+                    <Badge variant="outline" className="text-xs">
+                      {p.customer?.name || "Customer"}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
 }
 
 /* ============ UI Helpers ============ */
-
-function Stat({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="bg-muted/30 p-4 rounded-xl text-center">
-      <p className="text-xs text-muted-foreground">{title}</p>
-      <p className="text-lg font-bold">{value}</p>
-    </div>
-  );
-}
 
 function InfoCompact({ label, value }: { label: string; value: string }) {
   return (
