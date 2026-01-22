@@ -93,22 +93,6 @@ export default function Apartments() {
       />
     );
   }
-  //   if (loading) {
-  //   return (
-  //     <div className="w-full px-4 md:px-8 py-6 space-y-4">
-  //       <h2 className="text-xl font-bold">🏢 Apartment Inventory</h2>
-
-  //       <div className="space-y-4">
-  //         {[1, 2, 3, 4].map((i) => (
-  //           <div
-  //             key={i}
-  //             className="h-20 bg-gray-200 animate-pulse rounded-md"
-  //           />
-  //         ))}
-  //       </div>
-  //     </div>
-  //   );
-  // }
   if (!loading && selectedProject && flats.length === 0) {
     return (
       <div className="text-center mt-10 text-gray-500">
@@ -119,7 +103,7 @@ export default function Apartments() {
 
   return (
     <div className="w-full px-4 md:px-8 py-4 md:py-6 space-y-6">
-      <h2 className="text-xl md:text-2xl font-bold">🏢 Apartment Inventory</h2>
+      <h2 className="text-xl md:text-2xl font-bold">Apartment Inventory</h2>
 
       {/* -------- FILTERS -------- */}
       <Card>

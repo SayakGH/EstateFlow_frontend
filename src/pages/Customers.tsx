@@ -50,12 +50,14 @@ export default function Customers() {
 
   const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [customers, setCustomers] = useState<KycCustomer[]>([]);
-  const [selectedCustomer, setSelectedCustomer] =
-    useState<KycCustomer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<KycCustomer | null>(
+    null,
+  );
 
   const [loading, setLoading] = useState(false);
-  const [deleteCustomer, setDeleteCustomer] =
-    useState<KycCustomer | null>(null);
+  const [deleteCustomer, setDeleteCustomer] = useState<KycCustomer | null>(
+    null,
+  );
   const [confirmText, setConfirmText] = useState("");
 
   const [page, setPage] = useState(1);
@@ -153,7 +155,7 @@ export default function Customers() {
   return (
     <div className="space-y-5">
       {/* 🔒 STICKY HEADER */}
-      <div className="sticky top-0 z-10 bg-background space-y-5 pb-4">
+      <div className="sticky top-0 z-10 bg-background space-y-5 pb-4 p-4">
         {/* Search */}
         <div className="flex gap-2 max-w-sm">
           <div className="relative flex-1">
@@ -195,7 +197,7 @@ export default function Customers() {
         {/* 📜 ONLY THIS SCROLLS */}
         <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto">
           {loading &&
-            Array.from({ length: 3 }).map((_, i) => (
+            Array.from({ length: 7 }).map((_, i) => (
               <CustomerSkeleton key={i} />
             ))}
 

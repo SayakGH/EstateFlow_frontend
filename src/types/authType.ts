@@ -10,3 +10,7 @@ export interface IAuthResponse {
   token: string;
   user: IUser;
 }
+
+export interface IValidateResponse {
+  success: boolean;
+}
