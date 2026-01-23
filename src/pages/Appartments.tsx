@@ -46,7 +46,7 @@ export default function Apartments() {
     setProjects(data.projects);
 
     if (data.projects.length > 0) {
-      setSelectedProject(data.projects[0].id); // auto-select first project
+      setSelectedProject(data.projects[0].id);
     }
   };
 
@@ -88,7 +88,10 @@ export default function Apartments() {
       <ApartmentDetailsPage
         flat={selectedFlat}
         projectName={getProjectName(selectedFlat.projectId)}
-        onBack={() => setSelectedFlat(null)}
+        onBack={() => {
+          setSelectedFlat(null);
+          fetchFlatsByProject(selectedProject);
+        }}
         onPay={() => alert(`Paying for ${selectedFlat.flatId}`)}
       />
     );
@@ -158,11 +161,6 @@ export default function Apartments() {
 
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-gray-500">Flat ID:</span>
-                  <p className="font-mono">{flat.flatId}</p>
-                </div>
-
-                <div>
                   <span className="text-gray-500">Floor:</span>
                   <p>{flat.floor}</p>
                 </div>
@@ -193,7 +191,6 @@ export default function Apartments() {
                     <TableHead>Project</TableHead>
                     <TableHead>Block</TableHead>
                     <TableHead>Flat No</TableHead>
-                    <TableHead>Flat ID</TableHead>
                     <TableHead>Floor</TableHead>
                     <TableHead>BHK</TableHead>
                     <TableHead>Sqft</TableHead>
@@ -209,7 +206,6 @@ export default function Apartments() {
                       </TableCell>
                       <TableCell>{flat.block}</TableCell>
                       <TableCell>{flat.flatno}</TableCell>
-                      <TableCell>{flat.flatId}</TableCell>
                       <TableCell>{flat.floor}</TableCell>
                       <TableCell>{flat.bhk} BHK</TableCell>
                       <TableCell>{flat.sqft} sq.ft</TableCell>
@@ -227,7 +223,6 @@ export default function Apartments() {
                           size="sm"
                           onClick={() => setSelectedFlat(flat)}
                         >
-                          {/* <Eye className="h-4 w-4 mr-2" /> */}
                           Manage
                         </Button>
                       </TableCell>

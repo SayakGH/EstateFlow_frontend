@@ -61,6 +61,9 @@ export default function ApartmentDetailsPage({
   const [loading, setLoading] = useState(false);
   const [nextPaymentDate, setNextPaymentDate] = useState("");
   const [bookedData, setBookedData] = useState<null | BookedFlat>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+
   const [paymentMode, setPaymentMode] = useState<
     "Bank Transfer" | "Cheque" | "UPI" | "Cash" | "Demand Draft" | "Others"
   >("UPI");
@@ -169,6 +172,22 @@ export default function ApartmentDetailsPage({
       setLoading(false);
     }
   };
+  const handleChangeStatusToFree = async () => {
+    try {
+      //await updateFlatStatus(currentFlat.projectId, currentFlat.flatId, "free");
+
+      // // Optimistic UI update
+      // setCurrentFlat((prev) => ({
+      //   ...prev,
+      //   status: "free",
+      // }));
+
+      alert("Status changed to FREE");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to change status");
+    }
+  };
 
   const handleBookFlat = async () => {
     if (!selectedCustomer || !rate || !amountPaid) {
@@ -250,9 +269,71 @@ export default function ApartmentDetailsPage({
               {currentFlat.block}-{currentFlat.flatno}
               <p className="text-xs text-muted-foreground">{projectName}</p>
             </CardTitle>
-            <Badge className={`${statusColor[currentFlat.status]} uppercase`}>
-              {currentFlat.status}
-            </Badge>
+            <AlertDialog
+              open={statusDialogOpen}
+              onOpenChange={setStatusDialogOpen}
+            >
+              <AlertDialogTrigger asChild>
+                <Badge
+                  className={`${statusColor[currentFlat.status]} uppercase cursor-pointer`}
+                  onClick={() => {
+                    if (currentFlat.status === "booked") {
+                      setStatusDialogOpen(true);
+                    }
+                  }}
+                >
+                  {currentFlat.status}
+                </Badge>
+              </AlertDialogTrigger>
+
+              {currentFlat.status === "booked" && (
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Change Flat Status?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will change the flat status from{" "}
+                      <span className="font-semibold text-yellow-600">
+                        BOOKED
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-semibold text-green-600">FREE</span>
+                      . This action may affect customer records.
+                      <div className="mt-3 text-sm">
+                        Type <span className="font-bold">confirm</span> to
+                        continue.
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <Input
+                    placeholder="Type confirm"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    className="mt-2"
+                  />
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setConfirmText("")}>
+                      Cancel
+                    </AlertDialogCancel>
+
+                    <AlertDialogAction
+                      disabled={confirmText !== "confirm"}
+                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                      onClick={() => {
+                        // 🔥 Call your API here
+                        handleChangeStatusToFree();
+
+                        setConfirmText("");
+                        setStatusDialogOpen(false);
+                      }}
+                    >
+                      Yes, Change Status
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              )}
+            </AlertDialog>
           </div>
 
           {currentFlat.status === "booked" && (

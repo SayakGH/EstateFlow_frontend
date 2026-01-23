@@ -62,9 +62,10 @@ export interface AddPaymentResponse {
 }
 
 export interface FlatPayment {
-  pk: string;
-  sk: string;
+  projectName: string;
+  projectId: String;
   paymentId: string;
+  flatId: String;
   customer: {
     id: string;
     name: string;
@@ -81,6 +82,13 @@ export interface FlatPayment {
     chequeNumber: string | null;
     bankName: string | null;
   };
+  createdAt: string;
+}
+
+export interface IGetAllPaymentsResponse {
+  success: boolean;
+  count: number;
+  payments: FlatPayment[];
 }
 
 export interface PaymentHistoryResponse {

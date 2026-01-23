@@ -195,7 +195,7 @@ export default function Customers() {
         </CardHeader>
 
         {/* 📜 ONLY THIS SCROLLS */}
-        <CardContent className="space-y-3 max-h-[60vh] overflow-y-auto">
+        <CardContent className="space-y-3 max-h-[60vh] min-h-[460px] overflow-y-auto">
           {loading &&
             Array.from({ length: 7 }).map((_, i) => (
               <CustomerSkeleton key={i} />
@@ -310,11 +310,13 @@ export default function Customers() {
           </AlertDialogHeader>
 
           {deleteCustomer?.status === "approved" && (
-            <Input
-              placeholder='Type "confirm"'
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-            />
+            <div>
+              Type "confirm"
+              <Input
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+              />
+            </div>
           )}
 
           <AlertDialogFooter>

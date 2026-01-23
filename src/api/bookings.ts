@@ -6,6 +6,7 @@ import type {
   AddPaymentPayload,
   AddPaymentResponse,
   PaymentHistoryResponse,
+  IGetAllPaymentsResponse,
 } from "@/types/bookingTypes";
 
 /* ================= Auth Header ================= */
@@ -67,6 +68,14 @@ export const getFlatPaymentHistory = async (
     `/payments/${projectId}/${flatId}/history`,
     { headers: authHeader() },
   );
+
+  return res.data;
+};
+
+export const getAllPayments = async () => {
+  const res = await api.get<IGetAllPaymentsResponse>(`payments/all`, {
+    headers: authHeader(),
+  });
 
   return res.data;
 };
