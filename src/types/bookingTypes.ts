@@ -1,8 +1,12 @@
+/* ================= CUSTOMER TYPES ================= */
+
 export interface CustomerPayload {
   id: string;
   name?: string;
   phone?: string;
 }
+
+/* ================= BOOK FLAT TYPES ================= */
 
 export interface BookFlatPayload {
   customer: CustomerPayload;
@@ -26,6 +30,8 @@ export interface BookFlatResponse {
   message: string;
 }
 
+/* ================= BOOKED FLAT ================= */
+
 export interface BookedFlat {
   projectId: string;
   flatId: string;
@@ -39,6 +45,8 @@ export interface GetBookedFlatResponse {
   success: boolean;
   booked: BookedFlat;
 }
+
+/* ================= ADD PAYMENT TYPES ================= */
 
 export interface AddPaymentPayload {
   amount: number;
@@ -61,16 +69,22 @@ export interface AddPaymentResponse {
   paid: number;
 }
 
+/* ================= PAYMENT OBJECT ================= */
+
 export interface FlatPayment {
   projectName: string;
-  projectId: String;
+  projectId: string;
+
   paymentId: string;
-  flatId: String;
+  flatId: string;
+
   customer: {
     id: string;
     name: string;
   };
+
   amount: number;
+
   summary: {
     mode:
       | "Bank Transfer"
@@ -82,17 +96,28 @@ export interface FlatPayment {
     chequeNumber: string | null;
     bankName: string | null;
   };
-  createdAt: string;
+
+  createdAt: string; // ISO date string
 }
 
-export interface IGetAllPaymentsResponse {
-  success: boolean;
-  count: number;
-  payments: FlatPayment[];
-}
+/* ================= PAYMENT HISTORY RESPONSE ================= */
 
 export interface PaymentHistoryResponse {
   success: boolean;
   count: number;
   payments: FlatPayment[];
+}
+
+/* ================= GET ALL PAYMENTS RESPONSE (PAGINATED) ================= */
+
+export interface IGetAllPaymentsResponse {
+  success: boolean;
+
+  payments: FlatPayment[];
+
+  totalCount: number;   // ✅ total payments in DB
+  totalPages: number;   // ✅ total pages based on LIMIT
+  currentPage: number;  // ✅ current page number
+
+  count?: number; // ✅ optional (payments returned in this page)
 }

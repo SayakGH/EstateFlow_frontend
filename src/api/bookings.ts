@@ -24,12 +24,12 @@ const authHeader = () => {
 export const bookFlat = async (
   projectId: string,
   flatId: string,
-  payload: BookFlatPayload,
+  payload: BookFlatPayload
 ) => {
   const res = await api.post<BookFlatResponse>(
     `bookings/flats/${projectId}/${flatId}/book`,
     payload,
-    { headers: authHeader() },
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -39,7 +39,7 @@ export const bookFlat = async (
 export const getBookedFlat = async (projectId: string, flatId: string) => {
   const res = await api.get<GetBookedFlatResponse>(
     `bookings/flats/${projectId}/${flatId}/booked`,
-    { headers: authHeader() },
+    { headers: authHeader() }
   );
 
   return res.data;
@@ -49,32 +49,65 @@ export const getBookedFlat = async (projectId: string, flatId: string) => {
 export const addPayment = async (
   projectId: string,
   flatId: string,
-  payload: AddPaymentPayload,
+  payload: AddPaymentPayload
 ) => {
   const res = await api.post<AddPaymentResponse>(
     `payments/flats/${projectId}/${flatId}/pay`,
     payload,
-    { headers: authHeader() },
+    { headers: authHeader() }
   );
 
   return res.data;
 };
 
+// Get Payment History for Flat
 export const getFlatPaymentHistory = async (
   projectId: string,
-  flatId: string,
+  flatId: string
 ) => {
   const res = await api.get<PaymentHistoryResponse>(
     `/payments/${projectId}/${flatId}/history`,
-    { headers: authHeader() },
+    { headers: authHeader() }
   );
 
   return res.data;
 };
 
-export const getAllPayments = async () => {
-  const res = await api.get<IGetAllPaymentsResponse>(`payments/all`, {
+/* ================= ALL PAYMENTS (PAGINATED) ================= */
+
+/**
+ * Fetch ALL payments (Admin Dashboard)
+ * Backend controls LIMIT
+ * Supports pagination using ?page=
+ */
+export const getAllPayments = async (page = 1) => {
+  const res = await api.get<IGetAllPaymentsResponse>(`/payments/all`, {
     headers: authHeader(),
+    params: { page }, // ✅ pagination support
+  });
+
+  return res.data;
+};
+
+/* ================= SEARCH PAYMENTS (PAGINATED) ================= */
+
+/**
+ * Search payments by:
+ * - paymentId
+ * - customer name
+ * - project name/id
+ * - flatId
+ *
+ * Backend route:
+ * GET /payments/search?q=...&page=...
+ */
+export const searchPayments = async (query: string, page = 1) => {
+  const res = await api.get<IGetAllPaymentsResponse>(`/payments/search`, {
+    headers: authHeader(),
+    params: {
+      q: query, // ✅ search keyword
+      page,     // ✅ pagination support
+    },
   });
 
   return res.data;
