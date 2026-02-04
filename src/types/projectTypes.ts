@@ -23,12 +23,33 @@ export interface IProject {
   name: string;
   totalApartments: number;
   totalBlocks: number;
-
   soldApartments: number;
   freeApartments: number;
   bookedApartments: number;
 
   createdAt: string;
+}
+
+export interface IFlat {
+  projectId: string;
+  name: string;
+  totalApartments: number;
+  totalBlocks: number;
+  flatId: string;
+  block: string;
+  floor: number;
+  bhk: string;
+  sqft: number;
+  flatno: string;
+  soldApartments: number;
+  freeApartments: number;
+  bookedApartments: number;
+  latestInvoiceId?: string | null;
+  rootInvoiceId?: string | null;
+  status: "free" | "booked" | "sold";
+  createdAt: string;
+  latestCancellationId?: string | null;
+  rootCancellationId?: string | null;
 }
 
 export interface CreateProjectResponse {

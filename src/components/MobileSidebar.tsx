@@ -8,7 +8,6 @@ import {
   Building2,
   Home,
   Users,
-  CreditCard,
   FileCheck,
   Shield,
 } from "lucide-react";
@@ -70,15 +69,6 @@ export default function MobileSidebar() {
               icon={<FileCheck size={18} />}
               label="KYC"
               onClick={() => handleSelect("kyc")}
-            />
-          )}
-
-          {/* PAYMENTS */}
-          {(role === "admin" || role === "accounts") && (
-            <SidebarBtn
-              icon={<CreditCard size={18} />}
-              label="Payments"
-              onClick={() => handleSelect("payments")}
             />
           )}
 

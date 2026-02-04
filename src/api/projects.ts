@@ -5,6 +5,7 @@ import type {
   FlatPayload,
   GetAllProjectNamesResponse,
   GetAllProjectsResponse,
+  IFlat,
 } from "@/types/projectTypes";
 
 /* ================= Auth Header ================= */
@@ -70,6 +71,13 @@ export const deleteProject = async (projectid: string) => {
       headers: authHeader(),
     },
   );
+
+  return res.data;
+};
+export const getFlat = async (projectId: string, flatId: string) => {
+  const res = await api.get<IFlat>(`/projects/${projectId}/flats/${flatId}`, {
+    headers: authHeader(),
+  });
 
   return res.data;
 };

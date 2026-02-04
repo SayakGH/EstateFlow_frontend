@@ -1,10 +1,16 @@
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CreditCard } from "lucide-react";
+import { ArrowLeft, CreditCard, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { searchApprovedCustomers } from "@/api/kyc";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +22,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { approveLoan } from "@/api/projects";
-import { getBookedFlat } from "@/api/bookings";
-import type { BookedFlat } from "@/types/bookingTypes";
-import { bookFlat, addPayment, getFlatPaymentHistory } from "@/api/bookings";
+import { approveLoan, getFlat } from "@/api/projects";
+import { getInvoiceData } from "@/api/bookings";
+import type { ICancellationData, IInvoiceData } from "@/types/bookingTypes";
+import type { IFlat } from "@/types/projectTypes";
+import { addInvoice, removeInvoice } from "@/api/invoice";
+import { addCancellation, getCancellationData } from "@/api/cancellation";
 
 export interface Apartment {
   projectId: string;
@@ -37,9 +45,8 @@ export default function ApartmentDetailsPage({
   flat,
   projectName,
   onBack,
-  onPay,
 }: {
-  flat: Apartment;
+  flat: IFlat;
   projectName: string;
   onBack: () => void;
   onPay?: () => void;
@@ -50,51 +57,48 @@ export default function ApartmentDetailsPage({
     sold: "bg-red-600",
   };
 
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [currentFlat, setCurrentFlat] = useState(flat);
+  const [currentFlat, setCurrentFlat] = useState<IFlat>(flat);
 
-  const [rate, setRate] = useState("");
-  const [amountPaid, setAmountPaid] = useState("");
   const [loading, setLoading] = useState(false);
-  const [nextPaymentDate, setNextPaymentDate] = useState("");
-  const [bookedData, setBookedData] = useState<null | BookedFlat>(null);
-  const [confirmText, setConfirmText] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<IInvoiceData | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationId, setCancellationId] = useState("");
 
-  const [paymentMode, setPaymentMode] = useState<
-    "Bank Transfer" | "Cheque" | "UPI" | "Cash" | "Demand Draft" | "Others"
-  >("UPI");
+  const [cancellationData, setCancellationData] =
+    useState<ICancellationData | null>(null);
 
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const cancellationRegex = /^CAN-\d{6}-[A-Z0-9]{4}$/;
+  const isValidCancellationId = cancellationRegex.test(cancellationId);
 
-  const [chequeNumber, setChequeNumber] = useState("");
-  const [bankName, setBankName] = useState("");
-
-  const fetchCustomers = async (query: string) => {
-    if (!query.trim()) {
-      setCustomers([]);
-      return;
-    }
+  const fetchCancellationDetails = async () => {
+    if (!currentFlat.latestCancellationId) return;
 
     try {
-      setSearchLoading(true);
-      const data = await searchApprovedCustomers(query, 1);
-      setCustomers(data.customers || []);
+      const res = await getCancellationData(
+        currentFlat.projectId,
+        currentFlat.flatId,
+      );
+      setCancellationData(res.data);
     } catch (err) {
-      console.error("Customer search failed:", err);
-    } finally {
-      setSearchLoading(false);
+      console.warn("No cancellation details found");
+      setCancellationData(null);
     }
   };
 
-  const fetchBookingData = async () => {
-    getBookedFlat(currentFlat.projectId, currentFlat.flatId)
+  const fetchFlat = async () => {
+    const data: IFlat = await getFlat(
+      currentFlat.projectId,
+      currentFlat.flatId,
+    );
+    setCurrentFlat(data);
+  };
+
+  const fetchInvoiceData = async () => {
+    getInvoiceData(currentFlat.projectId, currentFlat.flatId)
       .then((res) => {
-        setBookedData(res.booked);
+        setInvoiceData(res.data);
       })
       .catch(() => {
         console.warn("Flat not booked or missing data");
@@ -103,133 +107,38 @@ export default function ApartmentDetailsPage({
 
   useEffect(() => {
     if (currentFlat.status != "free") {
-      fetchBookingData();
+      fetchInvoiceData();
     }
   }, [currentFlat.status]);
-  const fetchHistory = async () => {
-    if (
-      !currentFlat?.projectId ||
-      !currentFlat?.flatId ||
-      currentFlat.status === "free"
-    ) {
-      setPaymentHistory([]);
-      return;
+
+  const handleInvoiceSubmit = async () => {
+    try {
+      await addInvoice(invoiceId, currentFlat.projectId, currentFlat.flatId);
+      fetchFlat();
+    } catch (err) {
+      console.error("Failed to add invoice", err);
+    } finally {
     }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!isValidCancellationId) return;
 
     try {
-      setHistoryLoading(true);
-
-      const data = await getFlatPaymentHistory(
+      setLoading(true);
+      await addCancellation(
+        cancellationId,
         currentFlat.projectId,
         currentFlat.flatId,
       );
 
-      setPaymentHistory(data.payments || []);
+      setCancelDialogOpen(false);
+      setCancellationId("");
+
+      await fetchFlat();
     } catch (err) {
-      console.error("Failed to load payment history", err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-  useEffect(() => {
-    fetchHistory();
-  }, [currentFlat]);
-
-  const handleAddPayment = async () => {
-    if (!amountPaid) return alert("Enter payment amount");
-
-    setLoading(true);
-
-    try {
-      const res = await addPayment(currentFlat.projectId, currentFlat.flatId, {
-        amount: Number(amountPaid),
-        summary: {
-          mode: paymentMode,
-          chequeNumber: chequeNumber || null,
-          bankName: bankName || null,
-        },
-      });
-      if (
-        Number(amountPaid) + (bookedData?.paid || 0) >=
-        Number(bookedData?.totalPayment) * 0.5
-      ) {
-        setCurrentFlat((prev) => ({
-          ...prev,
-          status: "sold",
-        }));
-      }
-      fetchBookingData();
-      fetchHistory();
-
-      // Clear input
-      setAmountPaid("");
-      setChequeNumber("");
-      setBankName("");
-    } catch (err) {
-      console.error(err);
-      alert("Payment failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const handleChangeStatusToFree = async () => {
-    try {
-      //await updateFlatStatus(currentFlat.projectId, currentFlat.flatId, "free");
-
-      // // Optimistic UI update
-      // setCurrentFlat((prev) => ({
-      //   ...prev,
-      //   status: "free",
-      // }));
-
-      alert("Status changed to FREE");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to change status");
-    }
-  };
-
-  const handleBookFlat = async () => {
-    if (!selectedCustomer || !rate || !amountPaid) {
-      return alert("Select customer, rate, and amount");
-    }
-
-    setLoading(true);
-
-    try {
-      await bookFlat(currentFlat.projectId, currentFlat.flatId, {
-        customer: {
-          id: selectedCustomer._id,
-          name: selectedCustomer.name,
-        },
-        amount: Number(amountPaid),
-        totalPayment: Number(rate),
-        summary: {
-          mode: paymentMode,
-          chequeNumber: chequeNumber || null,
-          bankName: bankName || null,
-        },
-      });
-      if (Number(amountPaid) >= Number(rate) * 0.5) {
-        setCurrentFlat((prev) => ({
-          ...prev,
-          status: "sold",
-        }));
-      } else {
-        setCurrentFlat((prev) => ({
-          ...prev,
-          status: "booked",
-        }));
-      }
-
-      // Reset fields
-      setSelectedCustomer(null);
-      setCustomerSearch("");
-      setRate("");
-      setAmountPaid("");
-    } catch (err) {
-      console.error(err);
-      alert("Booking failed");
+      console.error("Cancellation failed", err);
+      alert(err);
     } finally {
       setLoading(false);
     }
@@ -254,6 +163,32 @@ export default function ApartmentDetailsPage({
     }
   };
 
+  useEffect(() => {
+    if (currentFlat.latestCancellationId) {
+      fetchCancellationDetails();
+    } else {
+      setCancellationData(null); // cleanup when cancellation is removed
+    }
+  }, [currentFlat.latestCancellationId]);
+
+  const handleDeleteFlatBooking = async () => {
+    try {
+      setLoading(true);
+
+      await removeInvoice(currentFlat.projectId, currentFlat.flatId);
+
+      fetchFlat();
+    } catch (err) {
+      console.error("Failed to reset flat", err);
+      alert("Failed to reset flat");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const invoiceRegex = /^INV-\d{6}-[A-Z0-9]{4}$/;
+  const isValidInvoice = invoiceRegex.test(invoiceId);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <Button variant="ghost" onClick={onBack} className="mb-2">
@@ -266,7 +201,7 @@ export default function ApartmentDetailsPage({
         <CardHeader className="flex flex-row justify-between items-center">
           <div className="flex items-center gap-3">
             <CardTitle className="text-xl">
-              {currentFlat.block}-{currentFlat.flatno}
+              {currentFlat.flatId}
               <p className="text-xs text-muted-foreground">{projectName}</p>
             </CardTitle>
             <AlertDialog
@@ -285,87 +220,134 @@ export default function ApartmentDetailsPage({
                   {currentFlat.status}
                 </Badge>
               </AlertDialogTrigger>
-
-              {currentFlat.status === "booked" && (
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Change Flat Status?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will change the flat status from{" "}
-                      <span className="font-semibold text-yellow-600">
-                        BOOKED
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-semibold text-green-600">FREE</span>
-                      . This action may affect customer records.
-                      <div className="mt-3 text-sm">
-                        Type <span className="font-bold">confirm</span> to
-                        continue.
-                      </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-
-                  <Input
-                    placeholder="Type confirm"
-                    value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
-                    className="mt-2"
-                  />
-
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setConfirmText("")}>
-                      Cancel
-                    </AlertDialogCancel>
-
-                    <AlertDialogAction
-                      disabled={confirmText !== "confirm"}
-                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50"
-                      onClick={() => {
-                        // 🔥 Call your API here
-                        handleChangeStatusToFree();
-
-                        setConfirmText("");
-                        setStatusDialogOpen(false);
-                      }}
-                    >
-                      Yes, Change Status
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              )}
             </AlertDialog>
           </div>
 
-          {currentFlat.status === "booked" && (
+          {(currentFlat.status === "booked" ||
+            currentFlat.status === "sold") && (
             <div className="flex gap-3 items-center">
-              <AlertDialog>
+              <AlertDialog
+                open={cancelDialogOpen}
+                onOpenChange={setCancelDialogOpen}
+              >
                 <AlertDialogTrigger asChild>
                   <Button
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    variant="outline"
+                    className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
                     disabled={loading}
                   >
-                    <CreditCard className="h-4 w-4" />
-                    {loading ? "Approving..." : "Approve Loan"}
+                    <Trash2 className="h-4 w-4" />
+                    Cancel Booking
                   </Button>
                 </AlertDialogTrigger>
 
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Approve Loan?</AlertDialogTitle>
+                    <AlertDialogTitle>Cancel Flat Booking</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to approve the loan for
-                      <span className="font-semibold">
-                        {" "}
-                        Flat {currentFlat.flatId}
-                      </span>
-                      ? This action cannot be undone.
+                      Enter the <b>Cancellation Invoice ID</b> to proceed. This
+                      will free the flat and cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  {/* INPUT */}
+                  <div className="space-y-2 mt-2">
+                    <Label htmlFor="cancellationId">
+                      Cancellation Invoice ID
+                    </Label>
+                    <Input
+                      id="cancellationId"
+                      placeholder="CAN-264515-OYLP"
+                      value={cancellationId}
+                      onChange={(e) =>
+                        setCancellationId(e.target.value.toUpperCase())
+                      }
+                    />
+
+                    {!isValidCancellationId && cancellationId && (
+                      <p className="text-xs text-destructive">
+                        Invalid format. Example: CAN-264515-OYLP
+                      </p>
+                    )}
+                  </div>
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={!isValidCancellationId || loading}
+                      onClick={handleCancelBooking}
+                    >
+                      {loading ? "Cancelling..." : "Confirm Cancellation"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {/* APPROVE LOAN (only for booked) */}
+              {currentFlat.status === "booked" && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      className="gap-2 bg-blue-600 hover:bg-blue-700"
+                      disabled={loading}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {loading ? "Approving..." : "Approve Loan"}
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Approve Loan?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will mark the flat as <b>SOLD</b>. This action
+                        cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleApproveLoan}>
+                        Yes, Approve
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
+              {/* ❌ DELETE / RESET FLAT */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={loading}>
+                    <Trash2 />
+                  </Button>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reset Flat to FREE?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will:
+                      <ul className="list-disc ml-5 mt-2 text-sm">
+                        <li>Remove invoice linkage</li>
+                        <li>Clear booking data</li>
+                        <li>
+                          Mark the flat as <b>FREE</b>
+                        </li>
+                      </ul>
+                      <div className="mt-3 font-semibold text-red-600">
+                        This action cannot be undone.
+                      </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
 
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleApproveLoan}>
-                      Yes, Approve
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={handleDeleteFlatBooking}
+                    >
+                      Yes, Reset Flat
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -385,296 +367,148 @@ export default function ApartmentDetailsPage({
           {currentFlat.status !== "free" && (
             <InfoCompact
               label="Customer Name"
-              value={bookedData?.customer_name || "N/A"}
+              value={invoiceData?.customerName || "N/A"}
             />
+          )}
+          {currentFlat.status !== "free" && (
+            <InfoCompact label="PAN" value={invoiceData?.pan || "N/A"} />
           )}
           {currentFlat.status !== "free" && (
             <InfoCompact
               label="Total Amount"
-              value={String(bookedData?.totalPayment) || "N/A"}
+              value={String(invoiceData?.totalAmount) || "N/A"}
             />
           )}
           {currentFlat.status !== "free" && (
             <InfoCompact
               label="Total Paid"
-              value={String(bookedData?.paid) || "N/A"}
+              value={String(invoiceData?.advance) || "N/A"}
             />
-          )}
-          {currentFlat.status !== "free" && (
-            <InfoCompact label="Next Payment" value={"1-33-5003"} />
           )}
         </CardContent>
       </Card>
-
       {currentFlat.status === "free" && (
-        <Card>
+        <Card className="w-full">
           <CardHeader>
-            <CardTitle>Add Payments</CardTitle>
+            <CardTitle>Add Invoice</CardTitle>
+            <CardDescription>
+              Invoice ID must follow the format <b>INV-XXXXXX-ABCD</b>
+            </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4 relative">
-            {/* ===== FLOATING SEARCH INPUT (YouTube style) ===== */}
-            <div className="relative w-full">
-              <label className="text-sm font-medium">Search Customer</label>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="w-full space-y-1">
+                <Label htmlFor="invoiceId">Invoice ID</Label>
+                <Input
+                  id="invoiceId"
+                  placeholder="INV-264515-OYLP"
+                  value={invoiceId}
+                  onChange={(e) => setInvoiceId(e.target.value.toUpperCase())}
+                />
 
-              <Input
-                placeholder="Search customer name..."
-                value={customerSearch}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setCustomerSearch(value);
-                  fetchCustomers(value);
-                }}
-                className="mt-1"
-              />
-
-              {/* ===== FLOATING RESULTS PANEL ===== */}
-              {customerSearch && (
-                <div className="absolute left-0 right-0 top-[72px] z-50 bg-white border rounded-xl shadow-lg p-2 space-y-1">
-                  {searchLoading ? (
-                    <p className="text-sm text-muted-foreground p-2">
-                      Searching...
-                    </p>
-                  ) : customers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground p-2">
-                      No approved customers found
-                    </p>
-                  ) : (
-                    customers.map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex justify-between items-center p-2 hover:bg-muted rounded-lg cursor-pointer"
-                        onClick={() => {
-                          setSelectedCustomer(c);
-                          setCustomerSearch("");
-                          setCustomers([]);
-                        }}
-                      >
-                        <div>
-                          <p className="font-semibold">{c.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {c.phone}
-                          </p>
-                        </div>
-                        <Button size="sm" variant="ghost">
-                          Select
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ===== SELECTED CUSTOMER PANEL ===== */}
-            {selectedCustomer && (
-              <div className="bg-muted/40 p-4 rounded-lg space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Selected Customer
-                </p>
-                <p className="font-semibold">{selectedCustomer.name}</p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm">Total Amount</label>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 5000"
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-sm">Amount Paid</label>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 5,00,000"
-                      value={amountPaid}
-                      onChange={(e) => setAmountPaid(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm">Payment Mode</label>
-                  <select
-                    className="w-full mt-1 border rounded px-2 py-2 text-sm"
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value as any)}
-                  >
-                    <option>UPI</option>
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Cheque</option>
-                    <option>Demand Draft</option>
-                    <option>Others</option>
-                  </select>
-                </div>
-
-                {paymentMode === "Cheque" && (
-                  <>
-                    <div>
-                      <label className="text-sm">Cheque Number</label>
-                      <Input
-                        placeholder="Cheque Number"
-                        value={chequeNumber}
-                        onChange={(e) => setChequeNumber(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm">Bank Name</label>
-                      <Input
-                        placeholder="Bank Name"
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                      />
-                    </div>
-                  </>
+                {!isValidInvoice && invoiceId && (
+                  <p className="text-xs text-destructive">
+                    Invalid format. Example: INV-264515-OYLP
+                  </p>
                 )}
-
-                <Button
-                  className="w-full mt-2"
-                  onClick={handleBookFlat}
-                  disabled={loading}
-                >
-                  {loading ? "Booking..." : "Book Flat"}
-                </Button>
               </div>
-            )}
+
+              <Button
+                className="w-full md:w-auto md:px-8"
+                disabled={loading || !isValidInvoice}
+                onClick={handleInvoiceSubmit}
+              >
+                {loading ? "Submitting..." : "Submit"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
-
-      {currentFlat.status !== "free" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* ================= ADD PAYMENT CARD ================= */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Add Payments</CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-4 relative">
-              <div className="bg-muted/40 p-4 rounded-lg space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Selected Customer
-                </p>
-                <p className="font-semibold">
-                  {bookedData?.customer_name || "N/A"}
-                </p>
-
-                <div>
-                  <label className="text-sm">Amount Paid</label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 5,00,000"
-                    value={amountPaid}
-                    onChange={(e) => setAmountPaid(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm">Payment Mode</label>
-                  <select
-                    className="w-full mt-1 border rounded px-2 py-2 text-sm"
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value as any)}
-                  >
-                    <option>UPI</option>
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                    <option>Cheque</option>
-                    <option>Demand Draft</option>
-                    <option>Others</option>
-                  </select>
-                </div>
-
-                {paymentMode === "Cheque" && (
-                  <>
-                    <div>
-                      <label className="text-sm">Cheque Number</label>
-                      <Input
-                        placeholder="Cheque Number"
-                        value={chequeNumber}
-                        onChange={(e) => setChequeNumber(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm">Bank Name</label>
-                      <Input
-                        placeholder="Bank Name"
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <Button
-                  className="w-full mt-2"
-                  onClick={handleAddPayment}
-                  disabled={loading}
-                >
-                  {loading ? "Saving..." : "Add Payment"}
-                </Button>
+      {currentFlat.latestCancellationId && (
+        <Card className="border border-border bg-background">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Cancellation Summary</CardTitle>
+                <CardDescription>
+                  Financial breakdown after booking cancellation
+                </CardDescription>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* ================= PAYMENT HISTORY CARD ================= */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-            </CardHeader>
+              <Badge variant="outline" className="text-xs">
+                CANCELLED
+              </Badge>
+            </div>
+          </CardHeader>
 
-            <CardContent className="space-y-3 max-h-[320px] overflow-y-auto">
-              {historyLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading history...
-                </p>
-              ) : paymentHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No payments made yet
-                </p>
-              ) : (
-                paymentHistory.map((p) => (
-                  <div
-                    key={p.paymentId}
-                    className="border rounded-lg p-3 flex justify-between items-start"
-                  >
-                    <div>
-                      <p className="font-semibold text-sm">
-                        ₹ {p.amount.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(p.createdAt).toLocaleString()}
-                      </p>
-                      <p className="text-xs">
-                        Mode:{" "}
-                        <span className="font-medium">{p.summary?.mode}</span>
-                      </p>
+          <CardContent className="pt-2">
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <tbody>
+                  <Row
+                    label="Total to be paid"
+                    value={
+                      typeof cancellationData?.net_return === "number"
+                        ? cancellationData.net_return
+                        : undefined
+                    }
+                  />
 
-                      {p.summary?.chequeNumber && (
-                        <p className="text-xs">
-                          Cheque: {p.summary.chequeNumber}
-                        </p>
-                      )}
+                  <Row
+                    label="Amount Paid"
+                    value={
+                      typeof cancellationData?.already_returned === "number"
+                        ? cancellationData.already_returned
+                        : undefined
+                    }
+                    positive
+                  />
 
-                      {p.summary?.bank && (
-                        <p className="text-xs">Bank: {p.summary.bank}</p>
-                      )}
-                    </div>
+                  {/* Divider */}
+                  <tr>
+                    <td colSpan={2}>
+                      <div className="my-1 h-px bg-border" />
+                    </td>
+                  </tr>
 
-                    <Badge variant="outline" className="text-xs">
-                      {p.customer?.name || "Customer"}
-                    </Badge>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  {/* Net Due / Refund */}
+                  {(() => {
+                    const netReturn =
+                      typeof cancellationData?.yetTB_returned === "number"
+                        ? cancellationData.yetTB_returned
+                        : null;
+
+                    return (
+                      <tr className="bg-muted/40">
+                        <td className="px-4 py-3 font-semibold">
+                          Net Due / Refund
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-right font-semibold ${
+                            netReturn === null
+                              ? "text-muted-foreground"
+                              : netReturn >= 0
+                                ? "text-emerald-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {netReturn === null
+                            ? "—"
+                            : `₹ ${netReturn.toLocaleString()}`}
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">
+              * Cancellation charges are applied as per company policy.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -688,5 +522,38 @@ function InfoCompact({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-semibold truncate">{value}</p>
     </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  positive,
+  negative,
+}: {
+  label: string;
+  value?: number;
+  positive?: boolean;
+  negative?: boolean;
+}) {
+  const isNumber = typeof value === "number";
+
+  return (
+    <tr className="border-b last:border-none">
+      <td className="px-4 py-3 text-muted-foreground">{label}</td>
+      <td
+        className={`px-4 py-3 text-right font-medium ${
+          !isNumber
+            ? "text-muted-foreground"
+            : positive
+              ? "text-emerald-600"
+              : negative
+                ? "text-red-600"
+                : ""
+        }`}
+      >
+        {isNumber ? `₹ ${value.toLocaleString()}` : "—"}
+      </td>
+    </tr>
   );
 }

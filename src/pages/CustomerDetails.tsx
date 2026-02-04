@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const CLOUDFRONT_URL = "http://d1ct2g1ctzkyn2.cloudfront.net";
 
@@ -48,7 +48,7 @@ export default function CustomerDetails({
       }
 
       onStatusChange?.(); // 🔥 REFRESH LIST
-      onBack();           // 🔥 GO BACK AFTER APPROVE
+      onBack(); // 🔥 GO BACK AFTER APPROVE
     } catch (err) {
       alert("Failed to approve KYC");
     } finally {

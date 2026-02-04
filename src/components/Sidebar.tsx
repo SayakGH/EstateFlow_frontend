@@ -7,7 +7,6 @@ import {
   Building2,
   Home,
   Users,
-  CreditCard,
   FileCheck,
   Shield,
   ChevronLeft,
@@ -67,15 +66,6 @@ export default function Sidebar() {
           collapsed={collapsed}
           onClick={() => setPage("customers")}
         />
-
-        {(role === "admin" || role === "accounts") && (
-          <NavItem
-            icon={<CreditCard size={20} />}
-            label="Payments"
-            collapsed={collapsed}
-            onClick={() => setPage("payments")}
-          />
-        )}
 
         {(role === "admin" || role === "kyc") && (
           <NavItem

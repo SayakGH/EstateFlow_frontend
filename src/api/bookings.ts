@@ -7,6 +7,7 @@ import type {
   AddPaymentResponse,
   PaymentHistoryResponse,
   IGetAllPaymentsResponse,
+  IResponseInvoice,
 } from "@/types/bookingTypes";
 
 /* ================= Auth Header ================= */
@@ -39,6 +40,15 @@ export const bookFlat = async (
 export const getBookedFlat = async (projectId: string, flatId: string) => {
   const res = await api.get<GetBookedFlatResponse>(
     `bookings/flats/${projectId}/${flatId}/booked`,
+    { headers: authHeader() },
+  );
+
+  return res.data;
+};
+
+export const getInvoiceData = async (projectId: string, flatId: string) => {
+  const res = await api.get<IResponseInvoice>(
+    `invoices/${projectId}/${flatId}/invoice-summary`,
     { headers: authHeader() },
   );
 

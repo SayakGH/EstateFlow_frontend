@@ -22,6 +22,7 @@ export interface KycPayload {
   voter?: string;
   other?: string;
   aadhaarKey: string;
+  normalized_pan?: string;
   panKey: string;
   voterKey?: string;
   otherKey?: string;
@@ -61,6 +62,7 @@ export interface KycCustomer {
 }
 
 export interface IGetCustomersResponse {
+  totalPages: number;
   success: boolean;
   count: number;
   customers: KycCustomer[];

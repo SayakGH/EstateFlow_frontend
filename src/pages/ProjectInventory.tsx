@@ -17,11 +17,9 @@ type Flat = {
 
 export default function ProjectInventory({
   projectId,
-  projectName,
   onBack,
 }: {
   projectId: string;
-  projectName: string;
   onBack: () => void;
 }) {
   const [flats, setFlats] = useState<Flat[]>([]);

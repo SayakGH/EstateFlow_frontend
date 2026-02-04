@@ -96,3 +96,27 @@ export interface PaymentHistoryResponse {
   count: number;
   payments: FlatPayment[];
 }
+export interface IInvoiceData {
+  customerName: string;
+  pan: string;
+  totalAmount: number;
+  advance: number;
+}
+
+export interface IResponseInvoice {
+  success: boolean;
+  data: IInvoiceData;
+}
+
+export interface ICancellationData {
+  customerName: string;
+  pan: string;
+  net_return: number;
+  already_returned: number;
+  yetTB_returned: number;
+}
+
+export interface IResponseCancellation {
+  success: boolean;
+  data: ICancellationData;
+}

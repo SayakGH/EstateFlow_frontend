@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import ProjectInventory from "./ProjectInventory";
 import { Plus, Upload, Eye } from "lucide-react";
 import { useEffect } from "react";
@@ -59,7 +58,6 @@ export default function Projects() {
     return (
       <ProjectInventory
         projectId={selectedProject.projectId}
-        projectName={selectedProject.name}
         onBack={() => setSelectedProject(null)}
       />
     );
@@ -142,12 +140,12 @@ export default function Projects() {
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {projects.map((project) => {
-          const soldPercentage =
-            project.totalApartments > 0
-              ? Math.round(
-                  (project.soldApartments / project.totalApartments) * 100,
-                )
-              : 0;
+          // const soldPercentage =
+          //   project.totalApartments > 0
+          //     ? Math.round(
+          //         (project.soldApartments / project.totalApartments) * 100,
+          //       )
+          //     : 0;
 
           return (
             <Card
@@ -165,7 +163,7 @@ export default function Projects() {
 
               <CardContent className="space-y-4">
                 {/* Inventory Stats */}
-                <div className="grid grid-cols-3 gap-3 text-center">
+                {/* <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="rounded-lg bg-emerald-50 p-2">
                     <p className="text-xs text-muted-foreground">Free</p>
                     <p className="font-semibold text-emerald-700">
@@ -186,16 +184,16 @@ export default function Projects() {
                       {project.soldApartments}
                     </p>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Sales Progress */}
-                <div className="space-y-1">
+                {/* <div className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span>Sales Progress</span>
                     <span>{soldPercentage}%</span>
                   </div>
                   <Progress value={soldPercentage} />
-                </div>
+                </div> */}
 
                 {/* Action */}
                 <div className="flex items-center justify-between gap-3">

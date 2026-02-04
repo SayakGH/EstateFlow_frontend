@@ -4,7 +4,6 @@ import { useGlobal } from "@/context/GlobalContext";
 import Analytics from "./Analytics";
 import Projects from "./Projects";
 import Apartments from "./Appartments";
-import Payments from "./Payments";
 import Customers from "./Customers";
 import KYC from "./KYC";
 import Manage from "./Manage";
@@ -20,8 +19,6 @@ export default function Dashboard() {
       {page === "projects" && <Projects />}
 
       {page === "apartments" && <Apartments />}
-
-      {page === "payments" && <Payments />}
 
       {page === "customers" && <Customers />}
 
