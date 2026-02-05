@@ -2,7 +2,6 @@ import api from "./axios";
 import type {
   CreateProjectPayload,
   CreateProjectResponse,
-  FlatPayload,
   GetAllProjectNamesResponse,
   GetAllProjectsResponse,
   IFlat,
