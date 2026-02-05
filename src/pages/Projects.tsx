@@ -94,14 +94,13 @@ export default function Projects() {
     // ✅ Flat JSON (each row = one entry)
     const flats = rows.map((row) => ({
       projectName,
-      block: row.block,
-      floor: row.floor,
-      flatno: row.flatno,
-      sqft: row.sqft,
-      bhk: row.bhk,
-      status: "free", // 👈 required flag
+      block: String(row.block),
+      floor: Number(row.floor),
+      flatno: String(row.flatno), // 👈 FORCE STRING
+      sqft: Number(row.sqft),
+      bhk: Number(row.bhk),
+      status: "free",
     }));
-
     setLoading(true);
 
     try {

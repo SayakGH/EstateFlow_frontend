@@ -14,6 +14,7 @@ export const addCancellation = async (
   cancellationId: string,
   projectId: string,
   flatId: string,
+  phone: string,
 ) => {
   const res = await api.post<any>(
     `/cancellations/attach-to-flat`,
@@ -21,6 +22,7 @@ export const addCancellation = async (
       cancellationId,
       projectId,
       flatId,
+      phone,
     },
     { headers: authHeader() },
   );

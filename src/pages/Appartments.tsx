@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import ApartmentDetailsPage from "./ApartmentDetails";
 import type { IProjectName } from "@/types/projectTypes";
 import { getProjectFlats, getProjectNames } from "@/api/projects";
+import type { IFlat } from "@/types/projectTypes";
 
 export default function Apartments() {
   const [search, setSearch] = useState("");
@@ -30,15 +31,18 @@ export default function Apartments() {
 
   const [selectedFlat, setSelectedFlat] = useState<any | null>(null);
   const [projects, setProjects] = useState<IProjectName[]>([]);
-  const [flats, setFlats] = useState<any[]>([]);
+
+  const [flats, setFlats] = useState<IFlat[]>([]);
+
   const [loading, setLoading] = useState(false);
 
   const filteredFlats = flats.filter((flat) => {
-    const matchesSearch =
-      flat.flatno.includes(search) ||
-      flat.flatId.toLowerCase().includes(search.toLowerCase());
+    const searchLower = search.toLowerCase();
 
-    return matchesSearch;
+    return (
+      String(flat.flatno).includes(searchLower) ||
+      flat.flatId.toLowerCase().includes(searchLower)
+    );
   });
 
   const fetchProjects = async () => {
@@ -174,6 +178,16 @@ export default function Apartments() {
                   <span className="text-gray-500">Area:</span>
                   <p>{flat.sqft} sq.ft</p>
                 </div>
+
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedFlat(flat)}
+                  >
+                    Manage
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -184,52 +198,55 @@ export default function Apartments() {
       <div className="hidden md:block">
         <Card>
           <CardContent className="pt-4">
-            <div className="overflow-x-auto rounded-md border">
-              <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Block</TableHead>
-                    <TableHead>Flat No</TableHead>
-                    <TableHead>Floor</TableHead>
-                    <TableHead>BHK</TableHead>
-                    <TableHead>Sqft</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {filteredFlats.map((flat) => (
-                    <TableRow key={flat.flatId} className="hover:bg-gray-50">
-                      <TableCell className="font-semibold">
-                        {getProjectName(flat.projectId)}
-                      </TableCell>
-                      <TableCell>{flat.block}</TableCell>
-                      <TableCell>{flat.flatno}</TableCell>
-                      <TableCell>{flat.floor}</TableCell>
-                      <TableCell>{flat.bhk} BHK</TableCell>
-                      <TableCell>{flat.sqft} sq.ft</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusColor(flat.status)} px-3 py-1`}
-                        >
-                          {flat.status.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {/* Action */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedFlat(flat)}
-                        >
-                          Manage
-                        </Button>
-                      </TableCell>
+            <div className="relative rounded-md border">
+              {/* SCROLL CONTAINER */}
+              <div className="max-h-[65vh] overflow-y-auto">
+                <Table className="min-w-full">
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Block</TableHead>
+                      <TableHead>Flat No</TableHead>
+                      <TableHead>Floor</TableHead>
+                      <TableHead>BHK</TableHead>
+                      <TableHead>Sqft</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Action</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+
+                  <TableBody>
+                    {filteredFlats.map((flat) => (
+                      <TableRow key={flat.flatId} className="hover:bg-gray-50">
+                        <TableCell className="font-semibold">
+                          {getProjectName(flat.projectId)}
+                        </TableCell>
+                        <TableCell>{flat.block}</TableCell>
+                        <TableCell>{flat.flatno}</TableCell>
+                        <TableCell>{flat.floor}</TableCell>
+                        <TableCell>{flat.bhk} BHK</TableCell>
+                        <TableCell>{flat.sqft} sq.ft</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusColor(flat.status)} px-3 py-1`}
+                          >
+                            {flat.status.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedFlat(flat)}
+                          >
+                            Manage
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </CardContent>
         </Card>

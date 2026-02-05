@@ -26,12 +26,17 @@ export const addInvoice = async (
 
   return res.data;
 };
-export const removeInvoice = async (projectId: string, flatId: string) => {
+export const removeInvoice = async (
+  projectId: string,
+  flatId: string,
+  phone: string,
+) => {
   const res = await api.patch<any>(
     `/invoices/reset`,
     {
       projectId,
       flatId,
+      phone,
     },
     { headers: authHeader() },
   );

@@ -28,18 +28,37 @@ import type { ICancellationData, IInvoiceData } from "@/types/bookingTypes";
 import type { IFlat } from "@/types/projectTypes";
 import { addInvoice, removeInvoice } from "@/api/invoice";
 import { addCancellation, getCancellationData } from "@/api/cancellation";
+import { upsertSchedule, getScheduleByPhone } from "@/api/schedule";
 
-export interface Apartment {
-  projectId: string;
-  block: string;
-  bhk: number;
-  status: "free" | "booked" | "sold";
-  createdAt: string;
-  sqft: number;
-  flatno: string;
-  floor: number;
-  flatId: string;
-}
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, XCircle, CheckCircle2, RotateCcw } from "lucide-react";
+
+// export interface Apartment {
+//   projectId: string;
+//   block: string;
+//   bhk: number;
+//   status: "free" | "booked" | "sold";
+//   createdAt: string;
+//   sqft: number;
+//   flatno: string;
+//   floor: number;
+//   flatId: string;
+// }
+
+const addDays = (dateStr: string, days: number) => {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
+const minus7 = (dateStr: string) => addDays(dateStr, -7);
+const plus7 = (dateStr: string) => addDays(dateStr, 7);
 
 export default function ApartmentDetailsPage({
   flat,
@@ -66,6 +85,19 @@ export default function ApartmentDetailsPage({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellationId, setCancellationId] = useState("");
 
+  const [nextPaymentDate, setNextPaymentDate] = useState<string | null>(null);
+  const [editingNextPayment, setEditingNextPayment] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState<string | null>(null);
+
+  const formatDate = (date?: string | null) => {
+    if (!date) return "—";
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const [cancellationData, setCancellationData] =
     useState<ICancellationData | null>(null);
 
@@ -87,6 +119,25 @@ export default function ApartmentDetailsPage({
     }
   };
 
+  useEffect(() => {
+    const loadSchedule = async () => {
+      if (!customerPhone) return;
+
+      try {
+        const res = await getScheduleByPhone(customerPhone);
+
+        if (res?.data?.date) {
+          // ADD 7 DAYS FOR DISPLAY
+          setNextPaymentDate(plus7(res.data.date));
+        }
+      } catch (err) {
+        console.log("No schedule found");
+      }
+    };
+
+    loadSchedule();
+  }, [customerPhone]);
+
   const fetchFlat = async () => {
     const data: IFlat = await getFlat(
       currentFlat.projectId,
@@ -96,13 +147,16 @@ export default function ApartmentDetailsPage({
   };
 
   const fetchInvoiceData = async () => {
-    getInvoiceData(currentFlat.projectId, currentFlat.flatId)
-      .then((res) => {
-        setInvoiceData(res.data);
-      })
-      .catch(() => {
-        console.warn("Flat not booked or missing data");
-      });
+    try {
+      const res = await getInvoiceData(
+        currentFlat.projectId,
+        currentFlat.flatId,
+      );
+      setInvoiceData(res.data);
+      setCustomerPhone(res.data?.customerPhone || null);
+    } catch {
+      console.warn("Flat not booked");
+    }
   };
 
   useEffect(() => {
@@ -130,10 +184,12 @@ export default function ApartmentDetailsPage({
         cancellationId,
         currentFlat.projectId,
         currentFlat.flatId,
+        customerPhone || "",
       );
 
       setCancelDialogOpen(false);
       setCancellationId("");
+      setCustomerPhone(null);
 
       await fetchFlat();
     } catch (err) {
@@ -175,7 +231,11 @@ export default function ApartmentDetailsPage({
     try {
       setLoading(true);
 
-      await removeInvoice(currentFlat.projectId, currentFlat.flatId);
+      await removeInvoice(
+        currentFlat.projectId,
+        currentFlat.flatId,
+        customerPhone || "",
+      );
 
       fetchFlat();
     } catch (err) {
@@ -183,6 +243,24 @@ export default function ApartmentDetailsPage({
       alert("Failed to reset flat");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveSchedule = async (selectedDate: string) => {
+    if (!customerPhone || !selectedDate) return;
+
+    try {
+      // store minus 7 days in backend
+      const dateToStore = minus7(selectedDate);
+
+      await upsertSchedule({
+        phone: customerPhone,
+        date: dateToStore,
+      });
+
+      setNextPaymentDate(selectedDate); // show actual picked date
+    } catch (e) {
+      console.error("Failed to save schedule", e);
     }
   };
 
@@ -225,133 +303,169 @@ export default function ApartmentDetailsPage({
 
           {(currentFlat.status === "booked" ||
             currentFlat.status === "sold") && (
-            <div className="flex gap-3 items-center">
-              <AlertDialog
-                open={cancelDialogOpen}
-                onOpenChange={setCancelDialogOpen}
+            <div className="flex items-center gap-4">
+              {/* NEXT PAYMENT */}
+              <div
+                className="text-sm cursor-pointer select-none"
+                onDoubleClick={() => {
+                  if (currentFlat.status !== "free") {
+                    setEditingNextPayment(true);
+                  }
+                }}
               >
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
-                    disabled={loading}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Cancel Booking
-                  </Button>
-                </AlertDialogTrigger>
+                <span className="text-muted-foreground">Next Payment:</span>{" "}
+                {!editingNextPayment ? (
+                  <span className="font-medium">
+                    {formatDate(nextPaymentDate)}
+                  </span>
+                ) : (
+                  <Input
+                    type="date"
+                    autoFocus
+                    className="h-8 inline-block w-[150px]"
+                    value={nextPaymentDate ?? ""}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setNextPaymentDate(newDate);
 
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel Flat Booking</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Enter the <b>Cancellation Invoice ID</b> to proceed. This
-                      will free the flat and cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-
-                  {/* INPUT */}
-                  <div className="space-y-2 mt-2">
-                    <Label htmlFor="cancellationId">
-                      Cancellation Invoice ID
-                    </Label>
-                    <Input
-                      id="cancellationId"
-                      placeholder="CAN-264515-OYLP"
-                      value={cancellationId}
-                      onChange={(e) =>
-                        setCancellationId(e.target.value.toUpperCase())
+                      // 🔥 CALL API IMMEDIATELY
+                      if (newDate) saveSchedule(newDate);
+                    }}
+                    onBlur={() => setEditingNextPayment(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setEditingNextPayment(false);
                       }
-                    />
+                    }}
+                  />
+                )}
+              </div>
 
-                    {!isValidCancellationId && cancellationId && (
-                      <p className="text-xs text-destructive">
-                        Invalid format. Example: CAN-264515-OYLP
-                      </p>
-                    )}
-                  </div>
-
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
-                      disabled={!isValidCancellationId || loading}
-                      onClick={handleCancelBooking}
-                    >
-                      {loading ? "Cancelling..." : "Confirm Cancellation"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              {/* APPROVE LOAN (only for booked) */}
-              {currentFlat.status === "booked" && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      className="gap-2 bg-blue-600 hover:bg-blue-700"
-                      disabled={loading}
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      {loading ? "Approving..." : "Approve Loan"}
-                    </Button>
-                  </AlertDialogTrigger>
-
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Approve Loan?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will mark the flat as <b>SOLD</b>. This action
-                        cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleApproveLoan}>
-                        Yes, Approve
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-
-              {/* ❌ DELETE / RESET FLAT */}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={loading}>
-                    <Trash2 />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-5 w-5" />
                   </Button>
-                </AlertDialogTrigger>
+                </DropdownMenuTrigger>
 
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Reset Flat to FREE?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will:
-                      <ul className="list-disc ml-5 mt-2 text-sm">
-                        <li>Remove invoice linkage</li>
-                        <li>Clear booking data</li>
-                        <li>
-                          Mark the flat as <b>FREE</b>
-                        </li>
-                      </ul>
-                      <div className="mt-3 font-semibold text-red-600">
-                        This action cannot be undone.
+                <DropdownMenuContent align="end" className="w-48">
+                  {/* CANCEL BOOKING */}
+                  <AlertDialog
+                    open={cancelDialogOpen}
+                    onOpenChange={setCancelDialogOpen}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Cancel Booking
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Flat Booking</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Enter the <b>Cancellation Invoice ID</b>. This will
+                          free the flat and cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Cancellation Invoice ID</Label>
+                        <Input
+                          placeholder="CAN-264515-OYLP"
+                          value={cancellationId}
+                          onChange={(e) =>
+                            setCancellationId(e.target.value.toUpperCase())
+                          }
+                        />
                       </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
 
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
-                      onClick={handleDeleteFlatBooking}
-                    >
-                      Yes, Reset Flat
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          disabled={!isValidCancellationId || loading}
+                          onClick={handleCancelBooking}
+                        >
+                          {loading ? "Cancelling..." : "Confirm Cancellation"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  {/* APPROVE LOAN */}
+                  {currentFlat.status === "booked" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4 text-blue-600" />
+                            Approve Loan
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Approve Loan?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will mark the flat as <b>SOLD</b>. This
+                              action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleApproveLoan}>
+                              Yes, Approve
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+
+                  {/* RESET FLAT */}
+                  <DropdownMenuSeparator />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Reset Flat
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Flat to FREE?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will remove invoice & cancellation data and mark
+                          the flat as <b>FREE</b>. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={handleDeleteFlatBooking}
+                        >
+                          Yes, Reset Flat
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </CardHeader>

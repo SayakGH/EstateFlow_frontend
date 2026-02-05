@@ -101,6 +101,7 @@ export interface IInvoiceData {
   pan: string;
   totalAmount: number;
   advance: number;
+  customerPhone?: string;
 }
 
 export interface IResponseInvoice {

@@ -5,15 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { getProjectFlats } from "@/api/projects";
-
-type Flat = {
-  block: string;
-  floor: number;
-  flatno: string;
-  sqft: number;
-  bhk: number;
-  status: "free" | "booked" | "sold";
-};
+import type { IFlat } from "@/types/projectTypes";
 
 export default function ProjectInventory({
   projectId,
@@ -22,7 +14,7 @@ export default function ProjectInventory({
   projectId: string;
   onBack: () => void;
 }) {
-  const [flats, setFlats] = useState<Flat[]>([]);
+  const [flats, setFlats] = useState<IFlat[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,7 +34,7 @@ export default function ProjectInventory({
 
   // Group only for rendering
   const grouped = useMemo(() => {
-    const map: Record<string, Record<number, Flat[]>> = {};
+    const map: Record<string, Record<number, IFlat[]>> = {};
 
     if (!Array.isArray(flats)) return map;
 
@@ -116,7 +108,7 @@ export default function ProjectInventory({
 
 /* ================= Flat Card ================= */
 
-function FlatCard({ flat }: { flat: Flat }) {
+function FlatCard({ flat }: { flat: IFlat }) {
   return (
     <div
       className={cn(

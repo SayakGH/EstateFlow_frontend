@@ -36,7 +36,7 @@ export const createProject = async (payload: CreateProjectPayload) => {
 export const getProjectFlats = async (projectId: string) => {
   const res = await api.get<{
     success: boolean;
-    flats: FlatPayload[];
+    flats: IFlat[];
   }>(`/projects/flats/${projectId}`, {
     headers: authHeader(),
   });
