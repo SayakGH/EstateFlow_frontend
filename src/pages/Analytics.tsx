@@ -1,17 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
   PieChart,
   Pie,
   Cell,
+  ResponsiveContainer,
 } from "recharts";
+import { getCustomerAnalytics } from "@/api/analytics";
 
 /* ===== Circular Percentage Component ===== */
 function CircularProgress({
@@ -23,7 +18,7 @@ function CircularProgress({
   total: number;
   color: string;
 }) {
-  const percentage = Math.round((value / total) * 100);
+  const percentage = total === 0 ? 0 : Math.round((value / total) * 100);
 
   const data = [
     { value: percentage },
@@ -56,41 +51,42 @@ function CircularProgress({
 }
 
 export default function Analytics() {
-  const [selectedType, setSelectedType] = useState<"booked" | "sold">("booked");
+  /* ================= BACKEND STATE ================= */
 
-  const totalKYCs = 40;
-  const approved = 21;
-  const pending = 19;
+  const [totalKYCs, setTotalKYCs] = useState(0);
+  const [approved, setApproved] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  /* ================= FETCH ANALYTICS ================= */
+
+  useEffect(() => {
+    const fetchCustomerAnalytics = async () => {
+      try {
+        setLoading(true);
+        const res = await getCustomerAnalytics();
+
+        if (res.success) {
+          setTotalKYCs(res.data.totalCustomers);
+          setApproved(res.data.approvedCustomers);
+          setPending(res.data.pendingCustomers);
+        }
+      } catch (err) {
+        console.error("Failed to fetch analytics", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomerAnalytics();
+  }, []);
+
+  /* ================= DUMMY SALES DATA (UNCHANGED) ================= */
 
   const totalApartments = 151;
   const free = 100;
   const booked = 40;
   const sold = 11;
-
-  const bookedData = [
-    { date: "Aug 01", count: 2 },
-    { date: "Aug 04", count: 1 },
-    { date: "Aug 07", count: 3 },
-    { date: "Aug 10", count: 4 },
-    { date: "Aug 14", count: 2 },
-    { date: "Aug 18", count: 5 },
-    { date: "Aug 22", count: 3 },
-    { date: "Aug 26", count: 4 },
-    { date: "Aug 30", count: 6 },
-  ];
-
-  const soldData = [
-    { date: "Aug 02", count: 1 },
-    { date: "Aug 06", count: 1 },
-    { date: "Aug 09", count: 2 },
-    { date: "Aug 13", count: 1 },
-    { date: "Aug 17", count: 3 },
-    { date: "Aug 21", count: 2 },
-    { date: "Aug 25", count: 1 },
-    { date: "Aug 29", count: 2 },
-  ];
-
-  const chartData = selectedType === "booked" ? bookedData : soldData;
 
   return (
     <div className="space-y-10">
@@ -104,7 +100,9 @@ export default function Analytics() {
               <CardTitle>Total KYCs</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{totalKYCs}</p>
+              <p className="text-3xl font-bold">
+                {loading ? "—" : totalKYCs}
+              </p>
             </CardContent>
           </Card>
 
@@ -113,8 +111,16 @@ export default function Analytics() {
               <CardTitle>Approved</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <p className="text-3xl font-bold text-green-600">{approved}</p>
-              <CircularProgress value={approved} total={totalKYCs} color="#16a34a" />
+              <p className="text-3xl font-bold text-green-600">
+                {loading ? "—" : approved}
+              </p>
+              {!loading && (
+                <CircularProgress
+                  value={approved}
+                  total={totalKYCs}
+                  color="#16a34a"
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -123,82 +129,86 @@ export default function Analytics() {
               <CardTitle>Pending</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <p className="text-3xl font-bold text-yellow-600">{pending}</p>
-              <CircularProgress value={pending} total={totalKYCs} color="#ca8a04" />
+              <p className="text-3xl font-bold text-yellow-600">
+                {loading ? "—" : pending}
+              </p>
+              {!loading && (
+                <CircularProgress
+                  value={pending}
+                  total={totalKYCs}
+                  color="#ca8a04"
+                />
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* ================= SALES ================= */}
+      {/* ================= SALES (DUMMY, UNTOUCHED) ================= */}
       <div className="space-y-6">
         <h2 className="text-xl font-semibold">Sales</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card>
-            <CardHeader><CardTitle>Projects</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">2</p></CardContent>
+            <CardHeader>
+              <CardTitle>Projects</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">2</p>
+            </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Apartments</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{totalApartments}</p></CardContent>
+            <CardHeader>
+              <CardTitle>Apartments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{totalApartments}</p>
+            </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Free</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Free</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-green-600">{free}</p>
-              <CircularProgress value={free} total={totalApartments} color="#16a34a" />
+              <CircularProgress
+                value={free}
+                total={totalApartments}
+                color="#16a34a"
+              />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Booked</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Booked</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-yellow-600">{booked}</p>
-              <CircularProgress value={booked} total={totalApartments} color="#ca8a04" />
+              <CircularProgress
+                value={booked}
+                total={totalApartments}
+                color="#ca8a04"
+              />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Sold</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Sold</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-red-600">{sold}</p>
-              <CircularProgress value={sold} total={totalApartments} color="#dc2626" />
+              <CircularProgress
+                value={sold}
+                total={totalApartments}
+                color="#dc2626"
+              />
             </CardContent>
           </Card>
         </div>
-
-        {/* ================= GRAPH ================= */}
-        <Card>
-          <CardHeader className="flex justify-between items-center">
-            <CardTitle>
-              Apartments {selectedType === "booked" ? "Booked" : "Sold"} (Last Month)
-            </CardTitle>
-
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as "booked" | "sold")}
-              className="border rounded-md px-3 py-1 text-sm"
-            >
-              <option value="booked">Booked</option>
-              <option value="sold">Sold</option>
-            </select>
-          </CardHeader>
-
-          <CardContent className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" strokeWidth={3} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
