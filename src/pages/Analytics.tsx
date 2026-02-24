@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
   getCustomerAnalytics,
   getSalesAnalytics,
   getAnalyticsProjects as getProjectList,
   getProjectSalesAnalytics,
 } from "@/api/analytics";
+import type { AnalyticsProject } from "@/types/analyticsTypes";
 
 /* ===== Circular Percentage Component ===== */
 function CircularProgress({
@@ -25,10 +21,7 @@ function CircularProgress({
 }) {
   const percentage = total === 0 ? 0 : Math.round((value / total) * 100);
 
-  const data = [
-    { value: percentage },
-    { value: 100 - percentage },
-  ];
+  const data = [{ value: percentage }, { value: 100 - percentage }];
 
   return (
     <div className="relative h-[90px] w-[90px] flex-shrink-0">
@@ -77,12 +70,10 @@ export default function Analytics() {
   const [showProjects, setShowProjects] = useState(false);
 
   // 🔥 FIXED HERE → use id instead of projectId
-  const [projects, setProjects] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [projects, setProjects] = useState<AnalyticsProject[]>([]);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null
+    null,
   );
 
   const [projectDetails, setProjectDetails] = useState<{
@@ -171,9 +162,7 @@ export default function Analytics() {
               <CardTitle>Total KYCs</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">
-                {loading ? "—" : totalKYCs}
-              </p>
+              <p className="text-3xl font-bold">{loading ? "—" : totalKYCs}</p>
             </CardContent>
           </Card>
 
@@ -221,7 +210,9 @@ export default function Analytics() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card>
-            <CardHeader><CardTitle>Projects</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Projects</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">
                 {loading ? "—" : totalProjects}
@@ -230,7 +221,9 @@ export default function Analytics() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Apartments</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Apartments</CardTitle>
+            </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold">
                 {loading ? "—" : totalApartments}
@@ -239,7 +232,9 @@ export default function Analytics() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Free</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Free</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-green-600">
                 {loading ? "—" : free}
@@ -255,7 +250,9 @@ export default function Analytics() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Booked</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Booked</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-yellow-600">
                 {loading ? "—" : booked}
@@ -271,7 +268,9 @@ export default function Analytics() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Sold</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Sold</CardTitle>
+            </CardHeader>
             <CardContent className="flex justify-between items-center">
               <p className="text-3xl font-bold text-red-600">
                 {loading ? "—" : sold}
@@ -307,7 +306,7 @@ export default function Analytics() {
 
                 {/* 🔥 FIXED HERE → p.id */}
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.projectId} value={p.projectId}>
                     {p.name}
                   </option>
                 ))}
@@ -316,7 +315,9 @@ export default function Analytics() {
               {projectDetails && (
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <Card>
-                    <CardHeader><CardTitle>Total Flats</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle>Total Flats</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold">
                         {projectDetails.totalApartments}
@@ -325,7 +326,9 @@ export default function Analytics() {
                   </Card>
 
                   <Card>
-                    <CardHeader><CardTitle>Free</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle>Free</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold text-green-600">
                         {projectDetails.freeApartments}
@@ -334,7 +337,9 @@ export default function Analytics() {
                   </Card>
 
                   <Card>
-                    <CardHeader><CardTitle>Booked</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle>Booked</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold text-yellow-600">
                         {projectDetails.bookedApartments}
@@ -343,7 +348,9 @@ export default function Analytics() {
                   </Card>
 
                   <Card>
-                    <CardHeader><CardTitle>Sold</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle>Sold</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold text-red-600">
                         {projectDetails.soldApartments}
