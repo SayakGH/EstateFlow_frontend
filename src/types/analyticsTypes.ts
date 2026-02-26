@@ -31,7 +31,7 @@ export interface SalesAnalyticsResponse {
 /* ============================================================= */
 
 export interface AnalyticsProject {
-  projectId: string;
+  id: string;
   name: string;
 }
 

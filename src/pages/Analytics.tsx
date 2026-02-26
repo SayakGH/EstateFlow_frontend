@@ -304,9 +304,8 @@ export default function Analytics() {
               >
                 <option value="">Select Project</option>
 
-                {/* 🔥 FIXED HERE → p.id */}
                 {projects.map((p) => (
-                  <option key={p.projectId} value={p.projectId}>
+                  <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
