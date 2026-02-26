@@ -67,14 +67,20 @@ export default function Sidebar() {
           onClick={() => setPage("customers")}
         />
 
-        {(role === "admin" || role === "kyc") && (
+        {/* {(role === "admin" || role === "kyc") && (
           <NavItem
             icon={<FileCheck size={20} />}
             label="KYC"
             collapsed={collapsed}
             onClick={() => setPage("kyc")}
           />
-        )}
+        )} */}
+        <NavItem
+          icon={<FileCheck size={20} />}
+          label="KYC"
+          collapsed={collapsed}
+          onClick={() => setPage("kyc")}
+        />
 
         {role === "admin" && (
           <NavItem

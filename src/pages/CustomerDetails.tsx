@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
 
-const CLOUDFRONT_URL = "http://d1ct2g1ctzkyn2.cloudfront.net";
+const CLOUDFRONT_URL = "https://d1h9t1rafyku62.cloudfront.net";
 
 export default function CustomerDetails({
   customer,
@@ -101,11 +101,11 @@ export default function CustomerDetails({
           </div>
 
           {customer.status === "pending" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
                 size="sm"
                 onClick={() => setApproveOpen(true)}
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto justify-center"
               >
                 <CheckCircle className="h-4 w-4" />
                 Approve
@@ -115,7 +115,7 @@ export default function CustomerDetails({
                 size="sm"
                 variant="outline"
                 onClick={() => setRejectOpen(true)}
-                className="gap-2 border-destructive text-destructive hover:bg-destructive/10"
+                className="gap-2 border-destructive text-destructive hover:bg-destructive/10 w-full sm:w-auto justify-center"
               >
                 <XCircle className="h-4 w-4" />
                 Reject

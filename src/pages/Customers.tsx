@@ -45,6 +45,8 @@ const calculateKycProgress = (c: KycCustomer) => {
 export default function Customers() {
   /* ================= State (UNCHANGED) ================= */
 
+  const role = localStorage.getItem("role");
+
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState<string | null>(null);
 
@@ -246,14 +248,16 @@ export default function Customers() {
                   View
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteCustomer(c)}
-                  className="border-destructive text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                </Button>
+                {role === "admin" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteCustomer(c)}
+                    className="border-destructive text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  </Button>
+                )}
               </div>
             ))}
         </CardContent>

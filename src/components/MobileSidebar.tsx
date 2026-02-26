@@ -64,13 +64,18 @@ export default function MobileSidebar() {
           />
 
           {/* KYC */}
-          {(role === "admin" || role === "kyc") && (
+          {/* {(role === "admin" || role === "kyc") && (
             <SidebarBtn
               icon={<FileCheck size={18} />}
               label="KYC"
               onClick={() => handleSelect("kyc")}
             />
-          )}
+          )} */}
+          <SidebarBtn
+            icon={<FileCheck size={18} />}
+            label="KYC"
+            onClick={() => handleSelect("kyc")}
+          />
 
           {/* ADMIN */}
           {role === "admin" && (

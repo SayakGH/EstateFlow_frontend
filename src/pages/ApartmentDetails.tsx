@@ -88,6 +88,7 @@ export default function ApartmentDetailsPage({
   const [nextPaymentDate, setNextPaymentDate] = useState<string | null>(null);
   const [editingNextPayment, setEditingNextPayment] = useState(false);
   const [customerPhone, setCustomerPhone] = useState<string | null>(null);
+  const role = localStorage.getItem("role");
 
   const formatDate = (date?: string | null) => {
     if (!date) return "—";
@@ -403,12 +404,14 @@ export default function ApartmentDetailsPage({
                       <DropdownMenuSeparator />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4 text-blue-600" />
-                            Approve Loan
-                          </DropdownMenuItem>
+                          {role === "admin" && (
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4 text-blue-600" />
+                              Approve Loan
+                            </DropdownMenuItem>
+                          )}
                         </AlertDialogTrigger>
 
                         <AlertDialogContent>
@@ -435,13 +438,15 @@ export default function ApartmentDetailsPage({
                   <DropdownMenuSeparator />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Reset Flat
-                      </DropdownMenuItem>
+                      {role === "admin" && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Reset Flat
+                        </DropdownMenuItem>
+                      )}
                     </AlertDialogTrigger>
 
                     <AlertDialogContent>

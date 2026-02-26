@@ -42,6 +42,7 @@ export default function KYC() {
       maxSizeMB: 0.6,
       maxWidthOrHeight: 1600,
       useWebWorker: true,
+      fileType: file.type, // ⭐ CRITICAL
     });
 
     setFiles((prev) => ({ ...prev, [key]: compressed }));
@@ -95,43 +96,76 @@ export default function KYC() {
 
       const { customerId, aadhaar, pan, voter, other } = presign;
 
-      await fetch(aadhaar.url, {
-        method: "PUT",
-        body: files.aadhaar,
-        headers: { "Content-Type": files.aadhaar.type },
-      });
-
-      await fetch(pan.url, {
-        method: "PUT",
-        body: files.pan,
-        headers: { "Content-Type": files.pan.type },
-      });
-
-      if (files.voter && voter) {
-        await fetch(voter.url, {
+      const uploadToS3 = async (url: string, file: File, label: string) => {
+        const res = await fetch(url, {
           method: "PUT",
-          body: files.voter,
-          headers: { "Content-Type": files.voter.type },
+          body: file,
+          headers: {
+            "Content-Type": file.type,
+          },
         });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error(`${label} upload failed:`, {
+            status: res.status,
+            statusText: res.statusText,
+            response: text,
+            fileType: file.type,
+            fileName: file.name,
+          });
+          throw new Error(`${label} upload failed`);
+        }
+      };
+
+      // await fetch(aadhaar.url, {
+      //   method: "PUT",
+      //   body: files.aadhaar,
+      //   headers: { "Content-Type": files.aadhaar.type },
+      // });
+
+      // await fetch(pan.url, {
+      //   method: "PUT",
+      //   body: files.pan,
+      //   headers: { "Content-Type": files.pan.type },
+      // });
+
+      // if (files.voter && voter) {
+      //   await fetch(voter.url, {
+      //     method: "PUT",
+      //     body: files.voter,
+      //     headers: { "Content-Type": files.voter.type },
+      //   });
+      // }
+
+      // if (files.other && other) {
+      //   await fetch(other.url, {
+      //     method: "PUT",
+      //     body: files.other,
+      //     headers: { "Content-Type": files.other.type },
+      //   });
+      // }
+      // ===== Upload Aadhaar =====
+      await uploadToS3(aadhaar.url, files.aadhaar, "Aadhaar");
+
+      // ===== Upload PAN =====
+      await uploadToS3(pan.url, files.pan, "PAN");
+
+      // ===== Upload Voter (optional) =====
+      if (files.voter && voter) {
+        await uploadToS3(voter.url, files.voter, "Voter");
       }
 
+      // ===== Upload Other (optional) =====
       if (files.other && other) {
-        await fetch(other.url, {
-          method: "PUT",
-          body: files.other,
-          headers: { "Content-Type": files.other.type },
-        });
+        await uploadToS3(other.url, files.other, "Other ID");
       }
 
       /* ================= NORMALIZATION ================= */
 
-      const normalizedName = form.name
-        .toLowerCase()
-        .replace(/\s+/g, "");
+      const normalizedName = form.name.toLowerCase().replace(/\s+/g, "");
 
-      const normalizedPan = form.pan
-        .toUpperCase()
-        .replace(/\s+/g, "");
+      const normalizedPan = form.pan.toUpperCase().replace(/\s+/g, "");
 
       await submitKyc({
         customerId,
@@ -272,7 +306,8 @@ export default function KYC() {
                 </Badge>
               ) : (
                 <Badge variant="secondary">
-                  <XCircle className="h-4 w-4 mr-1" /> Missing Required Documents
+                  <XCircle className="h-4 w-4 mr-1" /> Missing Required
+                  Documents
                 </Badge>
               )}
             </div>

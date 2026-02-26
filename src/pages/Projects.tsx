@@ -36,6 +36,7 @@ export default function Projects() {
   const [open, setOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const role = localStorage.getItem("role");
 
   const [selectedProject, setSelectedProject] = useState<IProject | null>(null);
 
@@ -208,13 +209,15 @@ export default function Projects() {
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {role === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </AlertDialogTrigger>
 
                     <AlertDialogContent>
